@@ -65,7 +65,15 @@ export async function signUp(data: SignUpData): Promise<AuthResult> {
         data: {
           name: data.name,
         },
+        emailRedirectTo: undefined,
       },
+    });
+
+    console.log('[SignUp] Auth response:', {
+      hasUser: !!authData?.user,
+      hasSession: !!authData?.session,
+      userId: authData?.user?.id,
+      error: authError?.message,
     });
 
     if (authError) {
@@ -74,6 +82,14 @@ export async function signUp(data: SignUpData): Promise<AuthResult> {
 
     if (!authData.user) {
       return { success: false, error: 'Failed to create user account' };
+    }
+
+    // Detect fake-success: Supabase returns user but no session when email
+    // already exists (anti-enumeration). Check identities array.
+    const identities = authData.user.identities ?? [];
+    if (identities.length === 0) {
+      console.warn('[SignUp] Fake success detected — email likely already registered');
+      return { success: false, error: 'An account with this email already exists. Please use a different email or log in.' };
     }
 
     // 2. Create parent profile in parents table
@@ -87,15 +103,18 @@ export async function signUp(data: SignUpData): Promise<AuthResult> {
       role: 'parent' as UserRole,
     };
     
+    console.log('[SignUp] Inserting parent profile:', { id: parentData.id, email: parentData.email });
     const { error: profileError } = await supabase
       .from('parents')
       .insert(parentData as never);
 
     if (profileError) {
-      // Rollback: delete auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id).catch(() => {});
+      console.error('[SignUp] Parents insert failed:', profileError.message, profileError.code);
+      // Rollback: sign out since admin.deleteUser won't work from client
+      await supabase.auth.signOut().catch(() => {});
       return { success: false, error: profileError.message };
     }
+    console.log('[SignUp] Parent profile created successfully');
 
     // 3. Create default settings for the parent
     const settingsData = {

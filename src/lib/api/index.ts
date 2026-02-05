@@ -132,3 +132,54 @@ export {
 // Profile & Control Center API
 export { syncProfileData } from './profile';
 export { updateParentPlan } from './subscription';
+
+// Data Sync Service (Offline-first)
+export {
+  // Parent data
+  saveParentLocally,
+  getParentLocally,
+  syncParentToCloud,
+  fetchParentFromCloud,
+  getParentWithFallback,
+  // Children data
+  saveChildrenLocally,
+  getChildrenLocally,
+  syncChildToCloud,
+  fetchChildrenFromCloud,
+  deleteChildFromCloud,
+  getChildrenWithFallback,
+  // Tasks data
+  saveTasksLocally,
+  getTasksLocally,
+  syncTaskToCloud,
+  fetchTasksFromCloud,
+  getTasksWithFallback,
+  // Rewards data
+  saveRewardsLocally,
+  getRewardsLocally,
+  syncRewardToCloud,
+  fetchRewardsFromCloud,
+  getRewardsWithFallback,
+  // Full sync
+  pullAllDataFromCloud,
+  processSyncQueue as processDataSyncQueue,
+  getSyncStatus,
+  clearAllLocalData,
+  checkNetwork,
+  getOnlineStatus,
+  // Types
+  type ParentData,
+  type ChildData,
+  type TaskData,
+  type RewardData,
+  type SyncStatus,
+} from './data-sync';
+
+// Sync Provider
+export {
+  SyncProvider,
+  useSync,
+  useIsOnline,
+  useSyncStatus,
+  usePendingChanges,
+} from './sync-provider';

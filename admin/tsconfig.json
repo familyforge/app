@@ -17,7 +17,8 @@
     "baseUrl": ".",
     "paths": {
       "@admin/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@assets/*": ["../assets/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

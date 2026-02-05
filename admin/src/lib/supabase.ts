@@ -1,7 +1,7 @@
 // Pro Parenting Admin Dashboard - Supabase Client Configuration
 // This file initializes the Supabase client for the web admin dashboard
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Database types (duplicated for admin to avoid cross-reference issues)
 export type Json =
@@ -29,14 +29,16 @@ export interface Database {
           password_hash: string;
           created_at: string;
           updated_at: string | null;
+          allowed_pages: string[] | null;
         };
         Insert: {
           id?: string;
           email: string;
           role?: UserRole;
-          password_hash: string;
+          password_hash?: string;
           created_at?: string;
           updated_at?: string | null;
+          allowed_pages?: string[] | null;
         };
         Update: {
           id?: string;
@@ -45,7 +47,9 @@ export interface Database {
           password_hash?: string;
           created_at?: string;
           updated_at?: string | null;
+          allowed_pages?: string[] | null;
         };
+        Relationships: [];
       };
       app_settings: {
         Row: {
@@ -66,6 +70,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string | null;
         };
+        Relationships: [];
       };
       parents: {
         Row: {
@@ -101,6 +106,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       children: {
         Row: {
@@ -163,6 +169,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       parent_profiles: {
         Row: {
@@ -207,6 +214,7 @@ export interface Database {
           privacy?: Json | null;
           updated_at?: string | null;
         };
+        Relationships: [];
       };
       parent_routines: {
         Row: {
@@ -245,6 +253,7 @@ export interface Database {
           last_completed_date?: string | null;
           updated_at?: string | null;
         };
+        Relationships: [];
       };
       parent_goals: {
         Row: {
@@ -274,6 +283,7 @@ export interface Database {
           current_streak?: number | null;
           updated_at?: string | null;
         };
+        Relationships: [];
       };
       tasks: {
         Row: {
@@ -290,6 +300,35 @@ export interface Database {
           created_at: string;
           completed_at: string | null;
         };
+        Insert: {
+          id?: string;
+          child_id: string;
+          title: string;
+          description?: string | null;
+          type: TaskType;
+          category: string;
+          points: number;
+          negative_points: number;
+          status?: TaskStatus;
+          due_date?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          child_id?: string;
+          title?: string;
+          description?: string | null;
+          type?: TaskType;
+          category?: string;
+          points?: number;
+          negative_points?: number;
+          status?: TaskStatus;
+          due_date?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Relationships: [];
       };
       rewards: {
         Row: {
@@ -305,6 +344,33 @@ export interface Database {
           created_at: string;
           redeemed_at: string | null;
         };
+        Insert: {
+          id?: string;
+          child_id?: string | null;
+          title: string;
+          description?: string | null;
+          image_url?: string | null;
+          points_required: number;
+          redeemed?: boolean;
+          redeemed_by_child_id?: string | null;
+          date_earned?: string | null;
+          created_at?: string;
+          redeemed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          child_id?: string | null;
+          title?: string;
+          description?: string | null;
+          image_url?: string | null;
+          points_required?: number;
+          redeemed?: boolean;
+          redeemed_by_child_id?: string | null;
+          date_earned?: string | null;
+          created_at?: string;
+          redeemed_at?: string | null;
+        };
+        Relationships: [];
       };
       exercises: {
         Row: {
@@ -318,6 +384,29 @@ export interface Database {
           created_at: string;
           completed_at: string | null;
         };
+        Insert: {
+          id?: string;
+          child_id: string;
+          subject: string;
+          questions: Json;
+          points_per_question: number;
+          completed?: boolean;
+          marked?: boolean;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          child_id?: string;
+          subject?: string;
+          questions?: Json;
+          points_per_question?: number;
+          completed?: boolean;
+          marked?: boolean;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Relationships: [];
       };
       reports: {
         Row: {
@@ -330,6 +419,450 @@ export interface Database {
           notes: string | null;
           created_at: string;
         };
+        Insert: {
+          id?: string;
+          child_id: string;
+          date: string;
+          tasks_completed: number;
+          points_earned: number;
+          rewards_redeemed: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          child_id?: string;
+          date?: string;
+          tasks_completed?: number;
+          points_earned?: number;
+          rewards_redeemed?: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      email_template_versions: {
+        Row: {
+          id: string;
+          template_id: string;
+          version: number;
+          html_content: string | null;
+          plain_text: string | null;
+          subject: string;
+          editor_email: string;
+          editor_name: string | null;
+          changelog: string | null;
+          is_active: boolean | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          version?: number;
+          html_content?: string | null;
+          plain_text?: string | null;
+          subject: string;
+          editor_email: string;
+          editor_name?: string | null;
+          changelog?: string | null;
+          is_active?: boolean | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          version?: number;
+          html_content?: string | null;
+          plain_text?: string | null;
+          subject?: string;
+          editor_email?: string;
+          editor_name?: string | null;
+          changelog?: string | null;
+          is_active?: boolean | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+      email_schedules: {
+        Row: {
+          id: string;
+          template_id: string;
+          scheduled_at: string;
+          timezone: string | null;
+          status: string | null;
+          recipient_count: number | null;
+          sent_count: number | null;
+          failed_count: number | null;
+          segment_filters: Json | null;
+          created_by: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          scheduled_at: string;
+          timezone?: string | null;
+          status?: string | null;
+          recipient_count?: number | null;
+          sent_count?: number | null;
+          failed_count?: number | null;
+          segment_filters?: Json | null;
+          created_by: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          scheduled_at?: string;
+          timezone?: string | null;
+          status?: string | null;
+          recipient_count?: number | null;
+          sent_count?: number | null;
+          failed_count?: number | null;
+          segment_filters?: Json | null;
+          created_by?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      email_audience_segments: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          filters: Json;
+          estimated_count: number | null;
+          created_by: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          filters?: Json;
+          estimated_count?: number | null;
+          created_by?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          filters?: Json;
+          estimated_count?: number | null;
+          created_by?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      email_delivery_records: {
+        Row: {
+          id: string;
+          template_id: string;
+          template_version: number | null;
+          schedule_id: string | null;
+          recipient_email: string;
+          recipient_id: string | null;
+          status: string | null;
+          sent_at: string | null;
+          delivered_at: string | null;
+          opened_at: string | null;
+          clicked_at: string | null;
+          bounced_at: string | null;
+          failed_at: string | null;
+          error_message: string | null;
+          retry_count: number | null;
+          metadata: Json | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          template_version?: number | null;
+          schedule_id?: string | null;
+          recipient_email: string;
+          recipient_id?: string | null;
+          status?: string | null;
+          sent_at?: string | null;
+          delivered_at?: string | null;
+          opened_at?: string | null;
+          clicked_at?: string | null;
+          bounced_at?: string | null;
+          failed_at?: string | null;
+          error_message?: string | null;
+          retry_count?: number | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          template_version?: number | null;
+          schedule_id?: string | null;
+          recipient_email?: string;
+          recipient_id?: string | null;
+          status?: string | null;
+          sent_at?: string | null;
+          delivered_at?: string | null;
+          opened_at?: string | null;
+          clicked_at?: string | null;
+          bounced_at?: string | null;
+          failed_at?: string | null;
+          error_message?: string | null;
+          retry_count?: number | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+      email_system_config: {
+        Row: {
+          id: string;
+          global_kill_switch: boolean | null;
+          kill_switch_enabled_at: string | null;
+          kill_switch_enabled_by: string | null;
+          default_from_name: string | null;
+          default_from_email: string | null;
+          default_reply_to: string | null;
+          quiet_hours: Json | null;
+          throttle: Json | null;
+          retry_config: Json | null;
+          unsubscribe_url: string | null;
+          company_address: string | null;
+          updated_at: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          global_kill_switch?: boolean | null;
+          kill_switch_enabled_at?: string | null;
+          kill_switch_enabled_by?: string | null;
+          default_from_name?: string | null;
+          default_from_email?: string | null;
+          default_reply_to?: string | null;
+          quiet_hours?: Json | null;
+          throttle?: Json | null;
+          retry_config?: Json | null;
+          unsubscribe_url?: string | null;
+          company_address?: string | null;
+          updated_at?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          global_kill_switch?: boolean | null;
+          kill_switch_enabled_at?: string | null;
+          kill_switch_enabled_by?: string | null;
+          default_from_name?: string | null;
+          default_from_email?: string | null;
+          default_reply_to?: string | null;
+          quiet_hours?: Json | null;
+          throttle?: Json | null;
+          retry_config?: Json | null;
+          unsubscribe_url?: string | null;
+          company_address?: string | null;
+          updated_at?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      email_compliance_records: {
+        Row: {
+          id: string;
+          type: string;
+          user_email: string;
+          user_id: string | null;
+          status: string | null;
+          requested_at: string | null;
+          processed_at: string | null;
+          processed_by: string | null;
+          metadata: Json | null;
+          notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          type: string;
+          user_email: string;
+          user_id?: string | null;
+          status?: string | null;
+          requested_at?: string | null;
+          processed_at?: string | null;
+          processed_by?: string | null;
+          metadata?: Json | null;
+          notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          type?: string;
+          user_email?: string;
+          user_id?: string | null;
+          status?: string | null;
+          requested_at?: string | null;
+          processed_at?: string | null;
+          processed_by?: string | null;
+          metadata?: Json | null;
+          notes?: string | null;
+        };
+        Relationships: [];
+      };
+      email_blocks: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          type: string;
+          html_template: string;
+          preview_image: string | null;
+          variables: string[] | null;
+          is_system: boolean | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          type: string;
+          html_template: string;
+          preview_image?: string | null;
+          variables?: string[] | null;
+          is_system?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          type?: string;
+          html_template?: string;
+          preview_image?: string | null;
+          variables?: string[] | null;
+          is_system?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      email_dry_runs: {
+        Row: {
+          id: string;
+          template_id: string;
+          template_name: string | null;
+          executed_by: string;
+          segment_filters: Json | null;
+          total_recipients: number | null;
+          recipients: Json | null;
+          estimated_send_time: string | null;
+          warnings: string[] | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          template_name?: string | null;
+          executed_by: string;
+          segment_filters?: Json | null;
+          total_recipients?: number | null;
+          recipients?: Json | null;
+          estimated_send_time?: string | null;
+          warnings?: string[] | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          template_name?: string | null;
+          executed_by?: string;
+          segment_filters?: Json | null;
+          total_recipients?: number | null;
+          recipients?: Json | null;
+          estimated_send_time?: string | null;
+          warnings?: string[] | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+      email_unsubscribes: {
+        Row: {
+          id: string;
+          email: string;
+          user_id: string | null;
+          reason: string | null;
+          unsubscribed_at: string | null;
+          source: string | null;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          user_id?: string | null;
+          reason?: string | null;
+          unsubscribed_at?: string | null;
+          source?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          user_id?: string | null;
+          reason?: string | null;
+          unsubscribed_at?: string | null;
+          source?: string | null;
+        };
+        Relationships: [];
+      };
+      email_analytics_daily: {
+        Row: {
+          id: string;
+          template_id: string;
+          date: string;
+          total_sent: number | null;
+          total_delivered: number | null;
+          total_opened: number | null;
+          total_clicked: number | null;
+          total_bounced: number | null;
+          total_failed: number | null;
+          total_unsubscribed: number | null;
+          open_rate: number | null;
+          click_rate: number | null;
+          bounce_rate: number | null;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          date: string;
+          total_sent?: number | null;
+          total_delivered?: number | null;
+          total_opened?: number | null;
+          total_clicked?: number | null;
+          total_bounced?: number | null;
+          total_failed?: number | null;
+          total_unsubscribed?: number | null;
+          open_rate?: number | null;
+          click_rate?: number | null;
+          bounce_rate?: number | null;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          date?: string;
+          total_sent?: number | null;
+          total_delivered?: number | null;
+          total_opened?: number | null;
+          total_clicked?: number | null;
+          total_bounced?: number | null;
+          total_failed?: number | null;
+          total_unsubscribed?: number | null;
+          open_rate?: number | null;
+          click_rate?: number | null;
+          bounce_rate?: number | null;
+        };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
@@ -341,6 +874,7 @@ export interface Database {
       theme_type: ThemeType;
       user_role: UserRole;
     };
+    CompositeTypes: Record<string, never>;
   };
 }
 
@@ -368,7 +902,6 @@ const getEnvVar = (key: string): string => {
   }
   // Fallback for Vite
   try {
-    // @ts-expect-error - Vite injects import.meta.env at build time
     return import.meta.env?.[key] || '';
   } catch {
     return '';
@@ -387,7 +920,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 }
 
 // Create Supabase client for admin dashboard
-export const supabase = createClient<Database>(
+export const supabase: SupabaseClient<Database> = createClient<Database>(
   SUPABASE_URL || FALLBACK_SUPABASE_URL,
   SUPABASE_ANON_KEY || FALLBACK_SUPABASE_KEY,
   {

@@ -21,11 +21,17 @@ import {
   Crown,
 } from "lucide-react-native";
 import { useAppStore } from "../../lib/state/app-store";
+import { useAuth } from "../../lib/api";
+import { useOnboardingStore } from "../../lib/state/onboarding-store";
 import {
   useProfileStore,
   MALE_PARENTAL_GOALS,
   FEMALE_PARENTAL_GOALS,
 } from "../../lib/state/profile-store";
+import { useFamilyStore } from "../../lib/state/family-store";
+import { useLearningStore } from "../../lib/state/learning-store";
+import { useCalendarStore } from "../../lib/state/calendar-store";
+import { useDeadlinesStore } from "../../lib/state/deadlines-store";
 
 const MENU_ITEMS = [
   {
@@ -97,6 +103,15 @@ const MENU_ITEMS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
+
+  const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
+  const resetAppStore = useAppStore((state) => state.resetStore);
+  const resetProfile = useProfileStore((state) => state.resetProfile);
+  const resetFamilyStore = useFamilyStore((state) => state.resetStore);
+  const resetLearningStore = useLearningStore((state) => state.resetStore);
+  const resetCalendarStore = useCalendarStore((state) => state.resetStore);
+  const resetDeadlinesStore = useDeadlinesStore((state) => state.resetStore);
 
   const children = useAppStore((state) => state.children);
   const profile = useProfileStore((state) => state.profile);
@@ -119,6 +134,18 @@ export default function ProfileScreen() {
     const completed = required.filter((item) => typeof item === "string" ? item.trim().length > 0 : Boolean(item));
     return Math.round((completed.length / required.length) * 100);
   }, [profile]);
+
+  const handleLogout = async () => {
+    await signOut();
+    resetOnboarding();
+    resetAppStore();
+    resetProfile();
+    resetFamilyStore();
+    resetLearningStore();
+    resetCalendarStore();
+    resetDeadlinesStore();
+    router.replace("/login");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-slate-950" edges={["top"]}>
@@ -289,8 +316,7 @@ export default function ProfileScreen() {
         <View className="px-5 mt-6 mb-8">
           <Pressable
             onPress={() => {
-              // TODO: Implement actual logout logic
-              router.replace("/login");
+              handleLogout();
             }}
             className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 flex-row items-center justify-center"
           >

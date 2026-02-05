@@ -20,6 +20,7 @@ import { useDeadlinesStore } from "../lib/state/deadlines-store";
 import { useLearningStore } from "../lib/state/learning-store";
 import { scheduleAllNotifications } from "../lib/utils/notifications";
 import { AuthProvider } from "../lib/api/auth-context";
+import { SyncProvider } from "../lib/api/sync-provider";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -178,6 +179,24 @@ function RootLayoutNav() {
             presentation: "modal",
           }}
         />
+        <Stack.Screen
+          name="landing"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="privacy-policy"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="terms"
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );
@@ -204,13 +223,15 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <RootLayoutNav />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
+        <SyncProvider syncInterval={30000} syncOnReconnect={true}>
+          <SafeAreaProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <RootLayoutNav />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </SyncProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -6,10 +6,16 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Child, Parent, Task, Reward, Exercise, Report, Settings, TaskCategory } from "../types";
 
-// Helper to generate unique IDs
-const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+// Helper to generate UUID-like IDs (valid UUID format)
+const generateId = () =>
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 
 interface AddChildInput {
+  id?: string;
   name: string;
   nickname?: string;
   age: number;
@@ -156,7 +162,7 @@ export const useAppStore = create<AppState>()(
       // Children actions
       addChild: (input) => {
         const newChild: Child = {
-          id: generateId(),
+          id: input.id ?? generateId(),
           name: input.name,
           nickname: input.nickname?.trim() || undefined,
           age: input.age,

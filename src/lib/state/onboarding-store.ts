@@ -151,6 +151,9 @@ interface OnboardingState {
   accountCreated: boolean;
   paymentComplete: boolean;
   emailSentAt: string | null;
+  emailVerificationCode: string;
+  emailVerificationSentAt: string | null;
+  emailVerified: boolean;
 
   // Actions
   setStep: (step: number) => void;
@@ -186,11 +189,14 @@ interface OnboardingState {
   setAccountCreated: (created: boolean) => void;
   setPaymentComplete: (complete: boolean) => void;
   setEmailSentAt: (timestamp: string | null) => void;
+  setEmailVerificationCode: (code: string) => void;
+  setEmailVerificationSentAt: (timestamp: string | null) => void;
+  setEmailVerified: (verified: boolean) => void;
   markComplete: () => void;
   resetOnboarding: () => void;
 }
 
-const TOTAL_STEPS = 24;
+const TOTAL_STEPS = 25;
 
 const createChildDraft = (index: number): OnboardingChild => ({
   id: `child-${index + 1}-${Date.now()}`,
@@ -237,6 +243,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       accountCreated: false,
       paymentComplete: false,
       emailSentAt: null,
+      emailVerificationCode: "",
+      emailVerificationSentAt: null,
+      emailVerified: false,
 
       // Actions
       setStep: (step) => set({ step }),
@@ -311,6 +320,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       setAccountCreated: (created) => set({ accountCreated: created }),
       setPaymentComplete: (complete) => set({ paymentComplete: complete }),
       setEmailSentAt: (timestamp) => set({ emailSentAt: timestamp }),
+      setEmailVerificationCode: (code) => set({ emailVerificationCode: code }),
+      setEmailVerificationSentAt: (timestamp) => set({ emailVerificationSentAt: timestamp }),
+      setEmailVerified: (verified) => set({ emailVerified: verified }),
 
       markComplete: () => set({ onboardingComplete: true }),
 
@@ -345,6 +357,9 @@ export const useOnboardingStore = create<OnboardingState>()(
           accountCreated: false,
           paymentComplete: false,
           emailSentAt: null,
+          emailVerificationCode: "",
+          emailVerificationSentAt: null,
+          emailVerified: false,
         }),
     }),
     {

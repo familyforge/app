@@ -1,5 +1,18 @@
-// FamilyForge - Email Service API
-// Handles all email-related functionality via Supabase Edge Functions
+// ═══════════════════════════════════════════════════════════════════════════
+// FamilyForge - Email Service API (Client Wrapper)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// This file is a CLIENT-SIDE wrapper for calling the Email System Pro
+// edge function at supabase/functions/send-email/
+//
+// ⚠️  DO NOT add email templates here. All templates are in:
+//     supabase/functions/send-email/index.ts (Email System Pro)
+//
+// This file only defines TypeScript types and convenience functions for
+// invoking the edge function from the React Native app.
+//
+// See: supabase/functions/send-email/WARNING.md for email system docs
+// ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase';
 
@@ -66,6 +79,7 @@ export type EmailTemplate =
   | 'family_invite'
   | 'password_reset'
   | 'welcome'
+  | 'email_verification_code'
   | 'data_export_ready'
   | 'abandoned_payment_1hr'
   | 'abandoned_payment_24hr'
@@ -97,6 +111,34 @@ export async function sendWelcomeEmail(
   } catch (error) {
     console.error('Unexpected error in sendWelcomeEmail:', error);
     return { success: false, error: 'Failed to send welcome email' };
+  }
+}
+
+/**
+ * Send email verification code after PIN creation
+ */
+export async function sendEmailVerificationCode(
+  recipient: EmailRecipient,
+  data: { parentName: string; code: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase.functions.invoke('send-email', {
+      body: {
+        template: 'email_verification_code' as EmailTemplate,
+        recipients: [recipient],
+        data,
+      },
+    });
+
+    if (error) {
+      console.error('Error sending email verification code:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error in sendEmailVerificationCode:', error);
+    return { success: false, error: 'Failed to send email verification code' };
   }
 }
 

@@ -4,103 +4,6 @@ import { create } from "zustand";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
   LayoutDashboard,
-  Users,
-  UserRound,
-  CheckSquare,
-  Gift,
-  BookOpen,
-  MessageCircle,
-  Download,
-  BarChart3,
-  ShieldCheck,
-  LifeBuoy,
-  Star,
-  Wallet,
-} from "lucide-react";
-import logo from "@assets/logo.png";
-
-// Types
-interface Parent {
-  id: string;
-  name: string;
-  email: string;
-  subscriptionTier: "free" | "premium";
-  planCode: string;
-  childrenCount: number;
-  createdAt: string;
-}
-
-interface Child {
-  id: string;
-  parentId: string;
-  parentName: string;
-  name: string;
-  age: number;
-  points: number;
-  tasksCompleted: number;
-  createdAt: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  category: string;
-  points: number;
-  assignedTo: string;
-  status: "pending" | "completed";
-  createdAt: string;
-}
-
-interface Reward {
-  id: string;
-  title: string;
-  pointsCost: number;
-  timesRedeemed: number;
-  createdAt: string;
-}
-
-interface Testimonial {
-  id: string;
-  name: string;
-  imageUrl: string;
-  text: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
-// Mock data store
-interface AdminStore {
-  parents: Parent[];
-  children: Child[];
-  tasks: Task[];
-  rewards: Reward[];
-  testimonials: Testimonial[];
-  stats: {
-    totalParents: number;
-    totalChildren: number;
-    totalTasksCompleted: number;
-    totalPointsEarned: number;
-    totalRewardsRedeemed: number;
-  };
-  setParents: (parents: Parent[]) => void;
-  setChildren: (children: Child[]) => void;
-  setStats: (stats: AdminStore["stats"]) => void;
-  addTestimonial: (testimonial: Omit<Testimonial, "id" | "createdAt">) => void;
-  updateTestimonial: (id: string, updates: Partial<Testimonial>) => void;
-  deleteTestimonial: (id: string) => void;
-  toggleTestimonialActive: (id: string) => void;
-}
-
-const useAdminStore = create<AdminStore>((set) => ({
-  parents: [],
-  children: [],
-  tasks: [],
-  rewards: [],
-  testimonials: [],
-  stats: {
-    totalParents: 0,
-    totalChildren: 0,
-    totalTasksCompleted: 0,
     totalPointsEarned: 0,
     totalRewardsRedeemed: 0,
   },
@@ -113,8 +16,6 @@ const useAdminStore = create<AdminStore>((set) => ({
         ...state.testimonials,
         { ...testimonial, id: Date.now().toString(), createdAt: new Date().toISOString().split("T")[0] },
       ],
-    })),
-  updateTestimonial: (id, updates) =>
     set((state) => ({
       testimonials: state.testimonials.map((t) => (t.id === id ? { ...t, ...updates } : t)),
     })),
@@ -140,7 +41,8 @@ type AdminPage =
   | "testimonials"
   | "data-exports"
   | "support"
-  | "admin-access";
+  | "admin-access"
+  | "email-system-pro";
 
 type AdminRole = "superadmin" | "admin";
 type AdminUser = {
@@ -148,6 +50,7 @@ type AdminUser = {
   role: AdminRole;
   passwordHash?: string;
   createdAt: string;
+  allowedPages?: AdminPage[];
 };
 
 const ADMIN_EMAILS_RAW = (import.meta as { env?: Record<string, string> }).env?.VITE_ADMIN_EMAILS
@@ -167,114 +70,6 @@ const LEARNING_BATCHES_KEY = "familyforge_learning_batches";
 
 type AppPlanPrices = {
   free: { monthly: number; yearly: number };
-  pro: { monthly: number; yearly: number };
-  forge: { monthly: number; yearly: number };
-};
-
-type TrialOffer = {
-  enabled: boolean;
-  label: string;
-  firstMonthPrice: number;
-  durationDays: number;
-  targetPlanId: "forge" | "pro";
-};
-
-type AppPricingConfig = {
-  planPrices: AppPlanPrices;
-  mostPopularPlanId: "pro" | "forge";
-  trialOffer: TrialOffer;
-};
-
-const DEFAULT_PLAN_PRICES: AppPlanPrices = {
-  free: { monthly: 0, yearly: 0 },
-  pro: { monthly: 6.99, yearly: 5.24 },
-  forge: { monthly: 9.99, yearly: 7.49 },
-};
-
-const DEFAULT_PRICING_CONFIG: AppPricingConfig = {
-  planPrices: DEFAULT_PLAN_PRICES,
-  mostPopularPlanId: "forge",
-  trialOffer: {
-    enabled: false,
-    label: "Forge Trial",
-    firstMonthPrice: 1.99,
-    durationDays: 30,
-    targetPlanId: "forge",
-  },
-};
-
-const normalizeNumber = (value: unknown, fallback: number): number =>
-  typeof value === "number" && Number.isFinite(value) ? value : fallback;
-
-const normalizePlanPrices = (input: unknown): AppPlanPrices => {
-  const raw = input as Partial<AppPlanPrices> | undefined;
-  return {
-    free: {
-      monthly: normalizeNumber(raw?.free?.monthly, DEFAULT_PLAN_PRICES.free.monthly),
-      yearly: normalizeNumber(raw?.free?.yearly, DEFAULT_PLAN_PRICES.free.yearly),
-    },
-    pro: {
-      monthly: normalizeNumber(raw?.pro?.monthly, DEFAULT_PLAN_PRICES.pro.monthly),
-      yearly: normalizeNumber(raw?.pro?.yearly, DEFAULT_PLAN_PRICES.pro.yearly),
-    },
-    forge: {
-      monthly: normalizeNumber(raw?.forge?.monthly, DEFAULT_PLAN_PRICES.forge.monthly),
-      yearly: normalizeNumber(raw?.forge?.yearly, DEFAULT_PLAN_PRICES.forge.yearly),
-    },
-  };
-};
-
-const loadAppPricingConfig = (): AppPricingConfig => {
-  try {
-    const raw = localStorage.getItem(APP_SETTINGS_KEY);
-    if (!raw) return DEFAULT_PRICING_CONFIG;
-    const parsed = JSON.parse(raw) as Partial<AppPricingConfig> & { planPrices?: unknown };
-    const normalizedPrices = normalizePlanPrices(parsed?.planPrices ?? parsed?.planPrices);
-    return {
-      planPrices: normalizedPrices,
-      mostPopularPlanId: parsed?.mostPopularPlanId === "pro" ? "pro" : "forge",
-      trialOffer: {
-        enabled: Boolean(parsed?.trialOffer?.enabled),
-        label: parsed?.trialOffer?.label || DEFAULT_PRICING_CONFIG.trialOffer.label,
-        firstMonthPrice: normalizeNumber(parsed?.trialOffer?.firstMonthPrice, DEFAULT_PRICING_CONFIG.trialOffer.firstMonthPrice),
-        durationDays: normalizeNumber(parsed?.trialOffer?.durationDays, DEFAULT_PRICING_CONFIG.trialOffer.durationDays),
-        targetPlanId: parsed?.trialOffer?.targetPlanId === "pro" ? "pro" : "forge",
-      },
-    };
-  } catch {
-    return DEFAULT_PRICING_CONFIG;
-  }
-};
-
-const saveAppPricingConfig = (config: AppPricingConfig) => {
-  localStorage.setItem(
-    APP_SETTINGS_KEY,
-    JSON.stringify({ ...config, updatedAt: new Date().toISOString() })
-  );
-};
-
-const fetchAppPricingConfig = async (): Promise<AppPricingConfig> => {
-  if (!isSupabaseConfigured()) {
-    return loadAppPricingConfig();
-  }
-
-  const { data, error } = await supabase
-    .from("app_settings")
-    .select("plan_prices")
-    .eq("key", "subscription_prices")
-    .maybeSingle();
-
-  if (error) {
-    console.warn("Failed to load app settings:", error.message);
-    return loadAppPricingConfig();
-  }
-
-  if (!data?.plan_prices) {
-    return loadAppPricingConfig();
-  }
-
-  const rawConfig = data.plan_prices as Partial<AppPricingConfig> & { prices?: unknown };
-  const normalized: AppPricingConfig = {
     planPrices: normalizePlanPrices((rawConfig as { prices?: unknown })?.prices ?? rawConfig),
     mostPopularPlanId: rawConfig?.mostPopularPlanId === "pro" ? "pro" : "forge",
     trialOffer: {
@@ -348,7 +143,7 @@ const fetchAdminUsersFromDb = async (): Promise<AdminUser[]> => {
   if (!isSupabaseConfigured()) return [];
   const { data, error } = await supabase
     .from("admin_users")
-    .select("email, role, password_hash, created_at");
+    .select("email, role, password_hash, created_at, allowed_pages");
   if (error || !data) {
     return [];
   }
@@ -357,6 +152,7 @@ const fetchAdminUsersFromDb = async (): Promise<AdminUser[]> => {
     role: (row.role === "superadmin" ? "superadmin" : "admin") as AdminRole,
     passwordHash: row.password_hash,
     createdAt: row.created_at,
+    allowedPages: row.allowed_pages as AdminPage[] | undefined,
   }));
 };
 
@@ -468,7 +264,7 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white focus:outline-none focus:border-violet-500"
-              placeholder={ADMIN_EMAILS[0] ?? "admin@familyforge.com"}
+              placeholder="email@example.com"
             />
           </div>
           <div>
@@ -520,23 +316,37 @@ export default function App() {
     setCurrentEmail("");
   };
 
-  const baseNavItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[] = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { key: "parents", label: "Parents", icon: Users },
-    { key: "children", label: "Children", icon: UserRound },
-    { key: "tasks", label: "Tasks", icon: CheckSquare },
-    { key: "rewards", label: "Rewards", icon: Gift },
-    { key: "learning", label: "Learning Content", icon: BookOpen },
-    { key: "testimonials", label: "Testimonials", icon: MessageCircle },
-    { key: "support", label: "Support Tickets", icon: LifeBuoy },
-    { key: "data-exports", label: "Data Exports", icon: Download },
-    { key: "subscriptions", label: "Subscriptions", icon: Wallet },
-    { key: "reports", label: "Reports", icon: BarChart3 },
+  const baseNavItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard; group: string }[] = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview" },
+    { key: "parents", label: "Parents", icon: Users, group: "People" },
+    { key: "children", label: "Children", icon: UserRound, group: "People" },
+    { key: "tasks", label: "Tasks", icon: CheckSquare, group: "People" },
+    { key: "rewards", label: "Rewards", icon: Gift, group: "People" },
+    { key: "learning", label: "Learning Content", icon: BookOpen, group: "Content" },
+    { key: "testimonials", label: "Testimonials", icon: MessageCircle, group: "Content" },
+    { key: "subscriptions", label: "Subscriptions", icon: Wallet, group: "Business" },
+    { key: "reports", label: "Reports", icon: BarChart3, group: "Business" },
+    { key: "email-system-pro", label: "Email System Pro", icon: Sparkles, group: "Communications" },
+    { key: "support", label: "Support Tickets", icon: LifeBuoy, group: "Operations" },
+    { key: "data-exports", label: "Data Exports", icon: Download, group: "Operations" },
   ];
 
-  const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[] = role === "superadmin"
-    ? [...baseNavItems, { key: "admin-access", label: "Admin Access", icon: ShieldCheck }]
-    : baseNavItems;
+  // Get current admin's allowed pages (for non-super admins)
+  const currentAdmin = adminUsers.find((admin) => admin.email === currentEmail.toLowerCase());
+  const allowedPages = currentAdmin?.allowedPages;
+
+  const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard; group: string }[] = role === "superadmin"
+    ? [...baseNavItems, { key: "admin-access", label: "Admin Access", icon: ShieldCheck, group: "Operations" }]
+    : allowedPages && allowedPages.length > 0
+      ? baseNavItems.filter((item) => allowedPages.includes(item.key))
+      : baseNavItems;
+
+  // Group nav items
+  const navGroups = navItems.reduce<Record<string, typeof navItems>>((acc, item) => {
+    if (!acc[item.group]) acc[item.group] = [];
+    acc[item.group].push(item);
+    return acc;
+  }, {});
 
   const currentLabel = navItems.find((item) => item.key === currentPage)?.label ?? "Dashboard";
   const adminCount = Array.from(new Set([
@@ -570,6 +380,11 @@ export default function App() {
         return <ReportsPage role={role} />;
       case "admin-access":
         return <AdminAccessPage role={role} adminUsers={adminUsers} onUpdate={setAdminUsers} />;
+      case "email-system-pro":
+        return <EmailSystemEnhanced 
+          currentUserEmail={currentEmail} 
+          renderTemplates={() => <EmailSystemProPage />}
+        />;
       default:
         return <DashboardPage />;
     }
@@ -702,91 +517,112 @@ export default function App() {
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900/90 border-r border-slate-800 p-5 flex flex-col">
-        <div className="mb-8">
+      <aside className="w-[260px] bg-slate-900/80 border-r border-slate-800/60 flex flex-col shrink-0">
+        {/* Logo */}
+        <div className="px-5 pt-6 pb-4">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="FamilyForge" className="h-10 w-10 rounded-2xl object-cover" />
+            <img src={logo} alt="FamilyForge" className="h-9 w-9 rounded-xl object-cover ring-2 ring-violet-500/20" />
             <div>
-              <h1 className="text-lg font-semibold text-white">FamilyForge</h1>
-              <p className="text-slate-500 text-xs">Premium Admin</p>
+              <h1 className="text-[15px] font-semibold text-white tracking-tight">FamilyForge</h1>
+              <p className="text-slate-500 text-[10px] uppercase tracking-widest">Admin Console</p>
             </div>
           </div>
         </div>
-        <nav className="space-y-1 flex-1">
-          {navItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setCurrentPage(item.key)}
-              className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex items-center gap-3 border ${
-                currentPage === item.key
-                  ? "bg-violet-500/20 text-white border-violet-500/40 shadow-[0_10px_30px_-15px_rgba(139,92,246,0.8)]"
-                  : "text-slate-300 border-transparent hover:bg-slate-800/60"
-              }`}
-            >
-              <item.icon
-                size={18}
-                className={currentPage === item.key ? "text-violet-300" : "text-slate-400"}
-              />
-              {item.label}
-            </button>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 pb-3 space-y-4 scrollbar-thin">
+          {Object.entries(navGroups).map(([group, items]) => (
+            <div key={group}>
+              <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold px-3 mb-1.5">{group}</p>
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const active = currentPage === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setCurrentPage(item.key)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 text-[13px] font-medium ${
+                        active
+                          ? "bg-violet-500/15 text-white border border-violet-500/30 shadow-sm shadow-violet-500/10"
+                          : "text-slate-400 border border-transparent hover:bg-slate-800/50 hover:text-slate-200"
+                      }`}
+                    >
+                      <item.icon
+                        size={16}
+                        className={active ? "text-violet-400" : "text-slate-500"}
+                      />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </nav>
-        <div className="mt-auto pt-4 border-t border-slate-800 space-y-3">
-          <div className="flex items-center gap-3 px-4 py-3 bg-slate-950/60 rounded-2xl">
-            <div className="w-10 h-10 rounded-full bg-violet-500/80 flex items-center justify-center text-white font-semibold">
+
+        {/* User card */}
+        <div className="px-3 pb-4 pt-2 border-t border-slate-800/60 space-y-2">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 bg-slate-950/50 rounded-xl">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {currentEmail ? currentEmail.charAt(0).toUpperCase() : "A"}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="text-white font-medium">{role === "superadmin" ? "Super Admin" : "Admin"}</p>
-                <span className={`text-[10px] uppercase px-2 py-1 rounded-full ${role === "superadmin" ? "bg-amber-500/20 text-amber-300" : "bg-slate-700 text-slate-300"}`}>
-                  {role}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-white text-xs font-medium truncate">{role === "superadmin" ? "Super Admin" : "Admin"}</p>
+                <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full font-bold ${
+                  role === "superadmin" ? "bg-amber-500/20 text-amber-300" : "bg-slate-700 text-slate-400"
+                }`}>
+                  {role === "superadmin" ? "SA" : "A"}
                 </span>
               </div>
-              <p className="text-slate-400 text-sm truncate">{currentEmail || "admin@familyforge.com"}</p>
+              <p className="text-slate-500 text-[11px] truncate">{currentEmail || "admin@familyforge.com"}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-200 hover:bg-slate-800"
+            className="w-full rounded-xl border border-slate-800/60 bg-slate-900/50 px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
           >
-            Log out
+            Sign out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-auto">
-        <div className="max-w-6xl mx-auto w-full space-y-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+      <main className="flex-1 overflow-auto">
+        {/* Top bar */}
+        <div className="sticky top-0 z-10 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/40 px-8 py-4">
+          <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">FamilyForge Admin</p>
-              <h2 className="text-2xl font-semibold text-white mt-2">{currentLabel}</h2>
-              <p className="text-slate-400 text-sm">Calm, premium oversight for your family operations.</p>
+              <h2 className="text-lg font-semibold text-white">{currentLabel}</h2>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-2">
-                <span className={`h-2 w-2 rounded-full ${dataLoading ? "bg-amber-400" : "bg-emerald-400"}`} />
-                <p className="text-slate-300 text-sm">{dataLoading ? "Syncing data" : "Live data"}</p>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-lg bg-slate-900/60 border border-slate-800/60 px-3 py-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${dataLoading ? "bg-amber-400 animate-pulse" : "bg-emerald-400"}`} />
+                <p className="text-slate-400 text-xs">{dataLoading ? "Syncing" : "Live"}</p>
               </div>
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-2">
-                <span className="text-xs text-slate-400">Parents</span>
-                <span className="text-sm text-white font-semibold">{stats.totalParents}</span>
+              <div className="flex items-center gap-1.5 rounded-lg bg-slate-900/60 border border-slate-800/60 px-3 py-1.5">
+                <Users size={12} className="text-slate-500" />
+                <span className="text-xs text-white font-medium">{stats.totalParents}</span>
               </div>
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-2">
-                <span className="text-xs text-slate-400">Children</span>
-                <span className="text-sm text-white font-semibold">{stats.totalChildren}</span>
+              <div className="flex items-center gap-1.5 rounded-lg bg-slate-900/60 border border-slate-800/60 px-3 py-1.5">
+                <UserRound size={12} className="text-slate-500" />
+                <span className="text-xs text-white font-medium">{stats.totalChildren}</span>
               </div>
               {role === "superadmin" && (
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-2">
-                  <span className="text-xs text-slate-400">Admins</span>
-                  <span className="text-sm text-white font-semibold">{adminCount}</span>
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-900/60 border border-slate-800/60 px-3 py-1.5">
+                  <ShieldCheck size={12} className="text-slate-500" />
+                  <span className="text-xs text-white font-medium">{adminCount}</span>
                 </div>
               )}
             </div>
           </div>
+        </div>
 
-          {renderPage()}
+        {/* Page Content */}
+        <div className="p-8">
+          <div className="max-w-[1200px] mx-auto">
+            {renderPage()}
+          </div>
         </div>
       </main>
     </div>
@@ -799,164 +635,404 @@ function DashboardPage() {
   const children = useAdminStore((s) => s.children);
   const tasks = useAdminStore((s) => s.tasks);
   const parents = useAdminStore((s) => s.parents);
+  const [planPrices, setPlanPrices] = useState<AppPlanPrices>(DEFAULT_PLAN_PRICES);
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
 
-  const statCards = [
-    { label: "Total Parents", value: stats.totalParents, color: "bg-blue-500", icon: Users },
-    { label: "Total Children", value: stats.totalChildren, color: "bg-emerald-500", icon: UserRound },
-    { label: "Tasks Completed", value: stats.totalTasksCompleted, color: "bg-purple-500", icon: CheckSquare },
-    { label: "Points Earned", value: stats.totalPointsEarned, color: "bg-amber-500", icon: Star },
-    { label: "Rewards Redeemed", value: stats.totalRewardsRedeemed, color: "bg-pink-500", icon: Gift },
+  useEffect(() => {
+    fetchAppPricingConfig().then((config) => setPlanPrices(config.planPrices));
+  }, []);
+
+  // --- Computed metrics ---
+  const now = new Date();
+  const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
+  const rangeDays = daysMap[timeRange];
+  const rangeStart = new Date(now);
+  rangeStart.setDate(now.getDate() - rangeDays);
+  const prevRangeStart = new Date(rangeStart);
+  prevRangeStart.setDate(rangeStart.getDate() - rangeDays);
+
+  const recentParents = parents.filter((p) => new Date(p.createdAt) >= rangeStart);
+  const prevParents = parents.filter((p) => {
+    const d = new Date(p.createdAt);
+    return d >= prevRangeStart && d < rangeStart;
+  });
+  const recentChildren = children.filter((c) => new Date(c.createdAt) >= rangeStart);
+  const prevChildren = children.filter((c) => {
+    const d = new Date(c.createdAt);
+    return d >= prevRangeStart && d < rangeStart;
+  });
+
+  const premiumCount = parents.filter((p) => p.subscriptionTier === "premium").length;
+  const proCount = parents.filter((p) => p.planCode === "pro").length;
+  const forgeCount = parents.filter((p) => p.planCode === "forge").length;
+  const freeCount = parents.length - premiumCount;
+  const conversionRate = parents.length > 0 ? Math.round((premiumCount / parents.length) * 100) : 0;
+  const avgChildrenPerParent = parents.length > 0 ? (children.length / parents.length).toFixed(1) : "0";
+  const estimatedMRR = planPrices.pro.monthly * proCount + planPrices.forge.monthly * forgeCount;
+  const estimatedARR = estimatedMRR * 12;
+
+  const delta = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+  const parentsDelta = delta(recentParents.length, prevParents.length);
+  const childrenDelta = delta(recentChildren.length, prevChildren.length);
+
+  // --- Signup sparkline (last 12 periods) ---
+  const sparklineBuckets = 12;
+  const bucketSize = Math.max(1, Math.floor(rangeDays / sparklineBuckets));
+  const signupSpark = Array.from({ length: sparklineBuckets }, (_, i) => {
+    const bStart = new Date(now);
+    bStart.setDate(now.getDate() - (sparklineBuckets - i) * bucketSize);
+    const bEnd = new Date(now);
+    bEnd.setDate(now.getDate() - (sparklineBuckets - i - 1) * bucketSize);
+    return parents.filter((p) => {
+      const d = new Date(p.createdAt);
+      return d >= bStart && d < bEnd;
+    }).length;
+  });
+  const sparkMax = Math.max(...signupSpark, 1);
+
+  // --- Greeting ---
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  // --- Registration timeline (last 6 months) ---
+  const monthLabels: string[] = [];
+  const monthCounts: number[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthLabels.push(d.toLocaleDateString("en-US", { month: "short" }));
+    const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    monthCounts.push(
+      parents.filter((p) => {
+        const pd = new Date(p.createdAt);
+        return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear();
+      }).length
+    );
+  }
+  const monthMax = Math.max(...monthCounts, 1);
+
+  // --- Subscription distribution ---
+  const subSegments = [
+    { label: "Free", count: freeCount, color: "bg-slate-500", text: "text-slate-300" },
+    { label: "Pro", count: proCount, color: "bg-violet-500", text: "text-violet-300" },
+    { label: "Forge", count: forgeCount, color: "bg-amber-500", text: "text-amber-300" },
   ];
+  const subTotal = Math.max(parents.length, 1);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-white">Dashboard Overview</h2>
-        <p className="text-slate-400 mt-1">Welcome back! Here's what's happening.</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {statCards.map((stat, i) => (
-          <div key={i} className="bg-slate-800 rounded-2xl p-5 border border-slate-700">
-            <div className="flex items-center justify-between mb-3">
-              <stat.icon size={20} className="text-slate-200" />
-              <span className={`w-3 h-3 rounded-full ${stat.color}`} />
-            </div>
-            <p className="text-3xl font-bold text-white">{stat.value.toLocaleString()}</p>
-            <p className="text-slate-400 text-sm mt-1">{stat.label}</p>
+      {/* Welcome Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600/20 via-slate-800 to-indigo-600/20 border border-violet-500/20 p-6">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">{greeting} &#128075;</h2>
+            <p className="text-slate-400 mt-1 max-w-md">
+              {parents.length === 0
+                ? "Your dashboard is ready. Data will appear as families join."
+                : `${recentParents.length} new families joined in the last ${rangeDays} days. You have ${parents.length} total families.`}
+            </p>
           </div>
-        ))}
+          {/* Time range toggle */}
+          <div className="flex gap-1 rounded-xl bg-slate-900/80 p-1 border border-slate-700/60">
+            {(['7d', '30d', '90d'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setTimeRange(r)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  timeRange === r
+                    ? "bg-violet-500 text-white shadow-lg shadow-violet-500/30"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {r === '7d' ? '7 Days' : r === '30d' ? '30 Days' : '90 Days'}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Latest Parents</h3>
-          {parents.length === 0 ? (
-            <p className="text-slate-500 text-sm">No parent records yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {parents
-                .slice()
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 4)
-                .map((parent) => (
-                  <div key={parent.id} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-                    <div>
-                      <p className="text-white text-sm font-medium">{parent.name}</p>
-                      <p className="text-slate-500 text-xs">{parent.email}</p>
-                    </div>
-                    <span className="text-slate-400 text-xs">{new Date(parent.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Families */}
+        <div className="group relative bg-slate-800/80 rounded-2xl p-5 border border-slate-700/60 hover:border-blue-500/40 transition-all">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <Users size={18} className="text-blue-400" />
+              </div>
+              {parentsDelta !== 0 && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  parentsDelta > 0
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "bg-red-500/15 text-red-400 border border-red-500/30"
+                }`}>
+                  {parentsDelta > 0 ? "+" : ""}{parentsDelta}%
+                </span>
+              )}
             </div>
-          )}
+            <p className="text-3xl font-bold text-white tracking-tight">{stats.totalParents.toLocaleString()}</p>
+            <p className="text-slate-400 text-sm mt-1">Total Families</p>
+            {/* Mini sparkline */}
+            <div className="flex items-end gap-[2px] h-6 mt-3">
+              {signupSpark.map((v, i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded-sm bg-blue-500/40 min-h-[2px] transition-all"
+                  style={{ height: `${Math.max(8, (v / sparkMax) * 100)}%` }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Latest Children</h3>
-          {children.length === 0 ? (
-            <p className="text-slate-500 text-sm">No child records yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {children
-                .slice()
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 4)
-                .map((child) => (
-                  <div key={child.id} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-                    <div>
-                      <p className="text-white text-sm font-medium">{child.name}</p>
-                      <p className="text-slate-500 text-xs">Parent: {child.parentName}</p>
-                    </div>
-                    <span className="text-slate-400 text-xs">{new Date(child.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
+        {/* Total Children */}
+        <div className="group relative bg-slate-800/80 rounded-2xl p-5 border border-slate-700/60 hover:border-emerald-500/40 transition-all">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <UserRound size={18} className="text-emerald-400" />
+              </div>
+              {childrenDelta !== 0 && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  childrenDelta > 0
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "bg-red-500/15 text-red-400 border border-red-500/30"
+                }`}>
+                  {childrenDelta > 0 ? "+" : ""}{childrenDelta}%
+                </span>
+              )}
             </div>
-          )}
+            <p className="text-3xl font-bold text-white tracking-tight">{stats.totalChildren.toLocaleString()}</p>
+            <p className="text-slate-400 text-sm mt-1">Total Children</p>
+            <p className="text-slate-500 text-xs mt-3">Avg {avgChildrenPerParent} per family</p>
+          </div>
+        </div>
+
+        {/* Conversion Rate */}
+        <div className="group relative bg-slate-800/80 rounded-2xl p-5 border border-slate-700/60 hover:border-violet-500/40 transition-all">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                <Zap size={18} className="text-violet-400" />
+              </div>
+              <span className="text-xs font-medium text-slate-500">{premiumCount} paid</span>
+            </div>
+            <p className="text-3xl font-bold text-white tracking-tight">{conversionRate}%</p>
+            <p className="text-slate-400 text-sm mt-1">Conversion Rate</p>
+            {/* Conversion bar */}
+            <div className="w-full h-2 bg-slate-700 rounded-full mt-3 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-400 transition-all"
+                style={{ width: `${Math.max(2, conversionRate)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* MRR */}
+        <div className="group relative bg-slate-800/80 rounded-2xl p-5 border border-slate-700/60 hover:border-amber-500/40 transition-all">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <Wallet size={18} className="text-amber-400" />
+              </div>
+              <span className="text-xs font-medium text-slate-500">ARR: £{estimatedARR.toFixed(0)}</span>
+            </div>
+            <p className="text-3xl font-bold text-white tracking-tight">
+              {estimatedMRR > 0 ? `£${estimatedMRR.toFixed(2)}` : "—"}
+            </p>
+            <p className="text-slate-400 text-sm mt-1">Monthly Revenue</p>
+            <p className="text-slate-500 text-xs mt-3">{proCount} Pro + {forgeCount} Forge</p>
+          </div>
         </div>
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Chart */}
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Weekly Activity</h3>
-          <div className="flex items-end justify-between h-48 gap-2">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => {
-              const height = [65, 80, 45, 90, 70, 55, 40][i];
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Registration Timeline */}
+        <div className="lg:col-span-2 bg-slate-800/80 rounded-2xl p-6 border border-slate-700/60">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-white font-semibold">User Growth</h3>
+              <p className="text-slate-500 text-xs mt-0.5">New signups over the last 6 months</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span className="w-2 h-2 rounded-full bg-violet-500" /> Signups
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-3 h-44">
+            {monthLabels.map((label, i) => {
+              const pct = Math.max(4, (monthCounts[i] / monthMax) * 100);
               return (
-                <div key={day} className="flex-1 flex flex-col items-center gap-2">
-                  <div 
-                    className="w-full bg-blue-500 rounded-t-lg transition-all hover:bg-blue-400"
-                    style={{ height: `${height}%` }}
+                <div key={label} className="flex-1 flex flex-col items-center gap-2 group/bar">
+                  <div className="relative w-full flex justify-center">
+                    <span className="absolute -top-6 text-xs text-slate-400 font-medium opacity-0 group-hover/bar:opacity-100 transition-opacity">
+                      {monthCounts[i]}
+                    </span>
+                  </div>
+                  <div
+                    className="w-full rounded-lg bg-gradient-to-t from-violet-600 to-violet-400 transition-all hover:from-violet-500 hover:to-violet-300 cursor-default shadow-lg shadow-violet-500/10"
+                    style={{ height: `${pct}%` }}
                   />
-                  <span className="text-slate-400 text-xs">{day}</span>
+                  <span className="text-slate-500 text-xs font-medium">{label}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Top Performers */}
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Top Performers</h3>
-          <div className="space-y-3">
-            {children.sort((a, b) => b.points - a.points).slice(0, 4).map((child, i) => (
-              <div key={child.id} className="flex items-center gap-4 p-3 bg-slate-700/50 rounded-xl">
-                <span className="text-2xl">{["🥇", "🥈", "🥉", "4️⃣"][i]}</span>
-                <div className="flex-1">
-                  <p className="text-white font-medium">{child.name}</p>
-                  <p className="text-slate-400 text-sm">{child.tasksCompleted} tasks completed</p>
+        {/* Subscription Breakdown */}
+        <div className="bg-slate-800/80 rounded-2xl p-6 border border-slate-700/60">
+          <h3 className="text-white font-semibold mb-1">Subscriptions</h3>
+          <p className="text-slate-500 text-xs mb-6">Plan distribution</p>
+          <div className="space-y-4">
+            {subSegments.map((seg) => {
+              const pct = Math.round((seg.count / subTotal) * 100);
+              return (
+                <div key={seg.label}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className={`text-sm font-medium ${seg.text}`}>{seg.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white text-sm font-semibold">{seg.count}</span>
+                      <span className="text-slate-500 text-xs">({pct}%)</span>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 bg-slate-700/60 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${seg.color} transition-all duration-500`}
+                      style={{ width: `${Math.max(2, pct)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-amber-400 font-semibold">{child.points}</p>
-                  <p className="text-slate-400 text-xs">points</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+          <div className="mt-6 pt-4 border-t border-slate-700/60">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Total Points Earned</span>
+              <span className="text-amber-400 font-semibold">{stats.totalPointsEarned.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm mt-2">
+              <span className="text-slate-400">Rewards Redeemed</span>
+              <span className="text-pink-400 font-semibold">{stats.totalRewardsRedeemed.toLocaleString()}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Recent Tasks</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left border-b border-slate-700">
-                <th className="pb-3 text-slate-400 font-medium">Task</th>
-                <th className="pb-3 text-slate-400 font-medium">Category</th>
-                <th className="pb-3 text-slate-400 font-medium">Assigned To</th>
-                <th className="pb-3 text-slate-400 font-medium">Points</th>
-                <th className="pb-3 text-slate-400 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task) => (
-                <tr key={task.id} className="border-b border-slate-700/50">
-                  <td className="py-4 text-white">{task.title}</td>
-                  <td className="py-4">
-                    <span className="px-2 py-1 bg-slate-700 rounded-full text-slate-300 text-sm">
-                      {task.category}
-                    </span>
-                  </td>
-                  <td className="py-4 text-slate-300">{task.assignedTo}</td>
-                  <td className="py-4 text-amber-400">{task.points}</td>
-                  <td className="py-4">
-                    <span className={`px-2 py-1 rounded-full text-sm ${
-                      task.status === "completed" 
-                        ? "bg-emerald-500/20 text-emerald-400" 
-                        : "bg-slate-700 text-slate-300"
-                    }`}>
-                      {task.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Recent Families + Top Performers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Signups */}
+        <div className="bg-slate-800/80 rounded-2xl p-6 border border-slate-700/60">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Recent Families</h3>
+            <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded-lg">
+              +{recentParents.length} this period
+            </span>
+          </div>
+          {parents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <Users size={32} className="mb-2 opacity-40" />
+              <p className="text-sm">No families yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {parents
+                .slice()
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 5)
+                .map((parent) => (
+                  <div key={parent.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-700/40 hover:border-slate-600/60 transition-colors">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                      {parent.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{parent.name}</p>
+                      <p className="text-slate-500 text-xs truncate">{parent.email}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        parent.subscriptionTier === "premium"
+                          ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                          : "bg-slate-700/60 text-slate-400"
+                      }`}>
+                        {parent.planCode || parent.subscriptionTier}
+                      </span>
+                      <p className="text-slate-500 text-[10px] mt-1">{new Date(parent.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top Performers */}
+        <div className="bg-slate-800/80 rounded-2xl p-6 border border-slate-700/60">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Top Performers</h3>
+            <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded-lg">
+              By points
+            </span>
+          </div>
+          {children.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <Star size={32} className="mb-2 opacity-40" />
+              <p className="text-sm">No children yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {children
+                .slice()
+                .sort((a, b) => b.points - a.points)
+                .slice(0, 5)
+                .map((child, i) => {
+                  const medals = ["bg-gradient-to-br from-amber-400 to-yellow-500", "bg-gradient-to-br from-slate-300 to-slate-400", "bg-gradient-to-br from-amber-600 to-amber-700"];
+                  const rankStyle = i < 3 ? medals[i] : "bg-slate-700";
+                  return (
+                    <div key={child.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-700/40 hover:border-slate-600/60 transition-colors">
+                      <div className={`w-9 h-9 rounded-full ${rankStyle} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{child.name}</p>
+                        <p className="text-slate-500 text-xs truncate">{child.parentName}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-amber-400 text-sm font-bold">{child.points.toLocaleString()}</p>
+                        <p className="text-slate-500 text-[10px]">points</p>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Stats Footer */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40 text-center">
+          <p className="text-2xl font-bold text-white">{stats.totalTasksCompleted.toLocaleString()}</p>
+          <p className="text-slate-500 text-xs mt-1">Tasks Completed</p>
+        </div>
+        <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40 text-center">
+          <p className="text-2xl font-bold text-white">{stats.totalPointsEarned.toLocaleString()}</p>
+          <p className="text-slate-500 text-xs mt-1">Points Earned</p>
+        </div>
+        <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40 text-center">
+          <p className="text-2xl font-bold text-white">{stats.totalRewardsRedeemed.toLocaleString()}</p>
+          <p className="text-slate-500 text-xs mt-1">Rewards Redeemed</p>
+        </div>
+        <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40 text-center">
+          <p className="text-2xl font-bold text-white">{children.length > 0 ? Math.round(stats.totalPointsEarned / children.length) : 0}</p>
+          <p className="text-slate-500 text-xs mt-1">Avg Points / Child</p>
         </div>
       </div>
     </div>
@@ -1042,75 +1118,75 @@ function ParentsPage() {
     setSelectedParent(null);
   };
 
+  const premiumCount = filteredParents.filter(p => p.subscriptionTier === "premium").length;
+  const freeCount = filteredParents.length - premiumCount;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-white">Parents Management</h2>
-          <p className="text-slate-400 mt-1">{parents.length} registered parents</p>
+          <h2 className="text-2xl font-bold text-white">Parents</h2>
+          <p className="text-slate-500 text-sm mt-0.5">{parents.length} registered &middot; {premiumCount} premium &middot; {freeCount} free</p>
         </div>
-        <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors">
-          <span>+</span> Add Parent
-        </button>
       </div>
 
       {/* Search */}
-      <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+      <div className="relative">
+        <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
         <input
           type="text"
-          placeholder="Search parents..."
+          placeholder="Search by name or email..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500"
+          className="w-full bg-slate-800/80 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-700/60 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 text-sm placeholder-slate-500"
         />
       </div>
 
       {/* Parents Table */}
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-slate-700/50">
-            <tr>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Name</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Email</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Subscription</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Children</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Joined</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Actions</th>
+          <thead>
+            <tr className="border-b border-slate-700/60">
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Name</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Email</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Plan</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Children</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Joined</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredParents.map((parent) => (
-              <tr key={parent.id} className="border-t border-slate-700 hover:bg-slate-700/30">
-                <td className="px-6 py-4">
+              <tr key={parent.id} className="border-t border-slate-700/40 hover:bg-slate-700/20 transition-colors">
+                <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                       {parent.name.charAt(0)}
                     </div>
-                    <span className="text-white font-medium">{parent.name}</span>
+                    <span className="text-white text-sm font-medium">{parent.name}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-slate-300">{parent.email}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
+                <td className="px-5 py-3.5 text-slate-400 text-sm">{parent.email}</td>
+                <td className="px-5 py-3.5">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                     parent.subscriptionTier === "premium"
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "bg-slate-700 text-slate-300"
+                      ? "bg-violet-500/15 text-violet-300 border border-violet-500/30"
+                      : "bg-slate-700/60 text-slate-400"
                   }`}>
-                    {parent.subscriptionTier}
+                    {parent.planCode || parent.subscriptionTier}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-slate-300">{parent.childrenCount}</td>
-                <td className="px-6 py-4 text-slate-400">{parent.createdAt}</td>
-                <td className="px-6 py-4">
-                  <div className="flex gap-2">
+                <td className="px-5 py-3.5 text-slate-300 text-sm">{parent.childrenCount}</td>
+                <td className="px-5 py-3.5 text-slate-500 text-sm">{new Date(parent.createdAt).toLocaleDateString()}</td>
+                <td className="px-5 py-3.5">
+                  <div className="flex gap-1.5">
                     <button 
                       onClick={() => handleViewSettings(parent)}
-                      className="px-3 py-1.5 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
+                      className="px-3 py-1.5 bg-violet-500/10 text-violet-300 rounded-lg hover:bg-violet-500/20 transition-colors text-xs font-medium border border-violet-500/20"
                     >
-                      ⚙️ Settings
+                      Settings
                     </button>
-                    <button className="text-blue-400 hover:text-blue-300">Edit</button>
-                    <button className="text-red-400 hover:text-red-300">Delete</button>
+                    <button className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors">Edit</button>
                   </div>
                 </td>
               </tr>
@@ -1283,63 +1359,57 @@ function ChildrenPage() {
     c.parentName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPoints = children.reduce((sum, c) => sum + c.points, 0);
+  const avgAge = children.length > 0 ? (children.reduce((sum, c) => sum + c.age, 0) / children.length).toFixed(1) : "0";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-white">Children Management</h2>
-          <p className="text-slate-400 mt-1">{children.length} children profiles</p>
+          <h2 className="text-2xl font-bold text-white">Children</h2>
+          <p className="text-slate-500 text-sm mt-0.5">{children.length} profiles &middot; Avg age {avgAge} &middot; {totalPoints.toLocaleString()} total points</p>
         </div>
-        <button className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors">
-          <span>+</span> Add Child
-        </button>
       </div>
 
       {/* Search */}
-      <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+      <div className="relative">
+        <UserRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
         <input
           type="text"
-          placeholder="Search children..."
+          placeholder="Search by child or parent name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:outline-none focus:border-emerald-500"
+          className="w-full bg-slate-800/80 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-700/60 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 text-sm placeholder-slate-500"
         />
       </div>
 
       {/* Children Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredChildren.map((child) => (
-          <div key={child.id} className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xl font-bold">
+          <div key={child.id} className="group bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50 hover:border-slate-600/60 transition-all">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-lg shadow-emerald-500/10">
                 {child.name.charAt(0)}
               </div>
-              <div>
-                <h3 className="text-white font-semibold text-lg">{child.name}</h3>
-                <p className="text-slate-400 text-sm">{child.age} years old</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-white font-semibold text-sm truncate">{child.name}</h3>
+                <p className="text-slate-500 text-xs">{child.age} years old</p>
               </div>
+              <span className="text-amber-400 text-sm font-bold">{child.points.toLocaleString()} pts</span>
             </div>
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Parent</span>
-                <span className="text-slate-300">{child.parentName}</span>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-700/30">
+                <span className="text-slate-500">Parent</span>
+                <span className="text-slate-300 font-medium">{child.parentName}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Points</span>
-                <span className="text-amber-400 font-semibold">{child.points}</span>
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-700/30">
+                <span className="text-slate-500">Tasks Done</span>
+                <span className="text-emerald-400 font-semibold">{child.tasksCompleted}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Tasks Completed</span>
-                <span className="text-emerald-400">{child.tasksCompleted}</span>
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-slate-500">Joined</span>
+                <span className="text-slate-400">{new Date(child.createdAt).toLocaleDateString()}</span>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <button className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition-colors">
-                View
-              </button>
-              <button className="flex-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 py-2 rounded-lg transition-colors">
-                Edit
-              </button>
             </div>
           </div>
         ))}
@@ -1357,27 +1427,26 @@ function TasksPage() {
     if (filter === "all") return true;
     return t.status === filter;
   });
+  const pendingCount = tasks.filter(t => t.status === "pending").length;
+  const completedCount = tasks.filter(t => t.status === "completed").length;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-white">Tasks & Exercises</h2>
-          <p className="text-slate-400 mt-1">{tasks.length} tasks created</p>
+          <h2 className="text-2xl font-bold text-white">Tasks</h2>
+          <p className="text-slate-500 text-sm mt-0.5">{tasks.length} total &middot; {pendingCount} pending &middot; {completedCount} completed</p>
         </div>
-        <button className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors">
-          <span>+</span> Create Task
-        </button>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 p-1 bg-slate-800 rounded-xl w-fit border border-slate-700">
+      <div className="flex gap-1 p-1 bg-slate-800/80 rounded-xl w-fit border border-slate-700/60">
         {(["all", "pending", "completed"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              filter === f ? "bg-purple-500 text-white" : "text-slate-400 hover:text-white"
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              filter === f ? "bg-violet-500 text-white shadow-lg shadow-violet-500/20" : "text-slate-400 hover:text-white"
             }`}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -1386,43 +1455,40 @@ function TasksPage() {
       </div>
 
       {/* Tasks Table */}
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-slate-700/50">
-            <tr>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Task</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Category</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Points</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Assigned To</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Status</th>
-              <th className="text-left px-6 py-4 text-slate-400 font-medium">Actions</th>
+          <thead>
+            <tr className="border-b border-slate-700/60">
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Task</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Category</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Points</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Assigned To</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Status</th>
+              <th className="text-left px-5 py-3.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredTasks.map((task) => (
-              <tr key={task.id} className="border-t border-slate-700 hover:bg-slate-700/30">
-                <td className="px-6 py-4 text-white font-medium">{task.title}</td>
-                <td className="px-6 py-4">
-                  <span className="px-3 py-1 bg-slate-700 rounded-full text-slate-300 text-sm">
+              <tr key={task.id} className="border-t border-slate-700/40 hover:bg-slate-700/20 transition-colors">
+                <td className="px-5 py-3.5 text-white text-sm font-medium">{task.title}</td>
+                <td className="px-5 py-3.5">
+                  <span className="px-2.5 py-1 bg-slate-700/50 rounded-full text-slate-300 text-xs font-medium">
                     {task.category}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-amber-400 font-semibold">{task.points}</td>
-                <td className="px-6 py-4 text-slate-300">{task.assignedTo}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
+                <td className="px-5 py-3.5 text-amber-400 text-sm font-semibold">{task.points}</td>
+                <td className="px-5 py-3.5 text-slate-400 text-sm">{task.assignedTo}</td>
+                <td className="px-5 py-3.5">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                     task.status === "completed"
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "bg-blue-500/20 text-blue-400"
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                      : "bg-blue-500/15 text-blue-400 border border-blue-500/30"
                   }`}>
                     {task.status}
                   </span>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex gap-2">
-                    <button className="text-blue-400 hover:text-blue-300">Edit</button>
-                    <button className="text-red-400 hover:text-red-300">Delete</button>
-                  </div>
+                <td className="px-5 py-3.5">
+                  <button className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors">Edit</button>
                 </td>
               </tr>
             ))}
@@ -1436,45 +1502,35 @@ function TasksPage() {
 // Rewards Page
 function RewardsPage() {
   const rewards = useAdminStore((s) => s.rewards);
+  const totalRedeemed = rewards.reduce((sum, r) => sum + r.timesRedeemed, 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-white">Rewards Management</h2>
-          <p className="text-slate-400 mt-1">{rewards.length} rewards available</p>
+          <h2 className="text-2xl font-bold text-white">Rewards</h2>
+          <p className="text-slate-500 text-sm mt-0.5">{rewards.length} available &middot; {totalRedeemed} total redemptions</p>
         </div>
-        <button className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors">
-          <span>+</span> Add Reward
-        </button>
       </div>
 
       {/* Rewards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {rewards.map((reward) => (
-          <div key={reward.id} className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-            <div className="h-32 bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center">
-              <span className="text-5xl">🎁</span>
+          <div key={reward.id} className="group bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden hover:border-slate-600/60 transition-all">
+            <div className="h-24 bg-gradient-to-br from-violet-500/15 to-pink-500/15 flex items-center justify-center border-b border-slate-700/30">
+              <Gift size={28} className="text-pink-400/60" />
             </div>
             <div className="p-4">
-              <h3 className="text-white font-semibold">{reward.title}</h3>
-              <div className="mt-3 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400 text-sm">Cost</span>
-                  <span className="text-amber-400 font-semibold">{reward.pointsCost} pts</span>
+              <h3 className="text-white font-semibold text-sm">{reward.title}</h3>
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Cost</span>
+                  <span className="text-amber-400 font-bold">{reward.pointsCost} pts</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 text-sm">Redeemed</span>
-                  <span className="text-emerald-400">{reward.timesRedeemed}x</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Redeemed</span>
+                  <span className="text-emerald-400 font-semibold">{reward.timesRedeemed}x</span>
                 </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm transition-colors">
-                  Edit
-                </button>
-                <button className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg text-sm transition-colors">
-                  Delete
-                </button>
               </div>
             </div>
           </div>
@@ -2166,66 +2222,65 @@ function TestimonialsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Testimonials</h2>
-          <p className="text-slate-400 mt-1">Manage testimonials shown on the app's paywall screen</p>
+          <p className="text-slate-500 text-sm mt-0.5">Manage testimonials shown on the app's paywall screen</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
         >
-          <span>+</span> Add Testimonial
+          <Plus size={14} /> Add Testimonial
         </button>
       </div>
 
-      {/* Testimonials Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {testimonials.map((t) => (
           <div
             key={t.id}
-            className={`bg-slate-800 rounded-2xl p-5 border ${
-              t.isActive ? "border-slate-700" : "border-slate-700/50 opacity-60"
+            className={`bg-slate-800/60 rounded-2xl p-5 border ${
+              t.isActive ? "border-slate-700/50" : "border-slate-700/30 opacity-50"
             }`}
           >
             <div className="flex items-start gap-4">
               <img
                 src={t.imageUrl}
                 alt={t.name}
-                className="w-16 h-16 rounded-full object-cover bg-slate-700"
+                className="w-14 h-14 rounded-full object-cover bg-slate-700 ring-2 ring-slate-700/50"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://via.placeholder.com/64?text=?";
                 }}
               />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-white font-semibold">{t.name}</h3>
+                <div className="flex items-center justify-between mb-1.5">
+                  <h3 className="text-white font-semibold text-sm">{t.name}</h3>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      t.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-600/50 text-slate-400"
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                      t.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-600/50 text-slate-500"
                     }`}
                   >
                     {t.isActive ? "Active" : "Inactive"}
                   </span>
                 </div>
-                <p className="text-slate-300 text-sm italic line-clamp-3">"{t.text}"</p>
+                <p className="text-slate-400 text-sm italic line-clamp-3">"{t.text}"</p>
                 <div className="flex items-center gap-2 mt-3">
                   <button
                     onClick={() => handleEdit(t.id)}
-                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors"
+                    className="px-3 py-1 bg-slate-700/60 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => toggleTestimonialActive(t.id)}
-                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    className={`px-3 py-1 text-xs rounded-lg transition-colors ${
                       t.isActive
-                        ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
-                        : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"
+                        ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-400"
+                        : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400"
                     }`}
                   >
                     {t.isActive ? "Deactivate" : "Activate"}
                   </button>
                   <button
                     onClick={() => deleteTestimonial(t.id)}
-                    className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm rounded-lg transition-colors"
+                    className="px-3 py-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs rounded-lg transition-colors"
                   >
                     Delete
                   </button>
@@ -2234,57 +2289,62 @@ function TestimonialsPage() {
             </div>
           </div>
         ))}
+        {testimonials.length === 0 && (
+          <div className="col-span-full bg-slate-800/40 rounded-2xl p-12 border border-dashed border-slate-700/50 text-center">
+            <MessageCircle size={32} className="text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-500 text-sm">No testimonials yet. Add one to get started.</p>
+          </div>
+        )}
       </div>
 
-      {/* Add/Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-700">
-            <h3 className="text-xl font-bold text-white mb-4">
-              {editingId ? "Edit Testimonial" : "Add New Testimonial"}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-700/50 shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-4">
+              {editingId ? "Edit Testimonial" : "Add Testimonial"}
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-slate-400 text-sm mb-1">Name</label>
+                <label className="block text-slate-500 text-xs mb-1">Name</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Sarah M."
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-xl border border-slate-600 focus:border-blue-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/50 focus:border-blue-500 focus:outline-none text-sm"
                 />
               </div>
               <div>
-                <label className="block text-slate-400 text-sm mb-1">Profile Image URL</label>
+                <label className="block text-slate-500 text-xs mb-1">Profile Image URL</label>
                 <input
                   type="text"
                   value={formData.imageUrl}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                   placeholder="https://..."
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-xl border border-slate-600 focus:border-blue-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/50 focus:border-blue-500 focus:outline-none text-sm"
                 />
                 {formData.imageUrl && (
                   <div className="mt-2 flex items-center gap-2">
                     <img
                       src={formData.imageUrl}
                       alt="Preview"
-                      className="w-10 h-10 rounded-full object-cover bg-slate-600"
+                      className="w-8 h-8 rounded-full object-cover bg-slate-600"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = "https://via.placeholder.com/40?text=?";
                       }}
                     />
-                    <span className="text-slate-400 text-sm">Preview</span>
+                    <span className="text-slate-500 text-xs">Preview</span>
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-slate-400 text-sm mb-1">Testimonial Text</label>
+                <label className="block text-slate-500 text-xs mb-1">Testimonial Text</label>
                 <textarea
                   value={formData.text}
                   onChange={(e) => setFormData({ ...formData, text: e.target.value })}
                   placeholder="Write a heartfelt testimonial..."
-                  rows={4}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-xl border border-slate-600 focus:border-blue-500 focus:outline-none resize-none"
+                  rows={3}
+                  className="w-full px-4 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/50 focus:border-blue-500 focus:outline-none resize-none text-sm"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -2295,21 +2355,21 @@ function TestimonialsPage() {
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                   className="w-4 h-4 rounded"
                 />
-                <label htmlFor="isActive" className="text-slate-300 text-sm">
+                <label htmlFor="isActive" className="text-slate-400 text-sm">
                   Show on app (active)
                 </label>
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="flex justify-end gap-3 mt-5">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors"
+                className="px-4 py-2 bg-slate-700/60 hover:bg-slate-600 text-white rounded-xl text-sm transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={editingId ? handleUpdate : handleAdd}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors"
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
               >
                 {editingId ? "Save Changes" : "Add Testimonial"}
               </button>
@@ -2366,21 +2426,24 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-white">Subscription Pricing</h2>
-        <p className="text-slate-400 mt-1">Update pricing used across onboarding and upgrade screens.</p>
+        <h2 className="text-2xl font-bold text-white">Subscription Pricing</h2>
+        <p className="text-slate-500 text-sm mt-0.5">Update pricing used across onboarding and upgrade screens.</p>
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+      <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
         {loading ? (
-          <p className="text-slate-400 text-sm">Loading pricing…</p>
+          <p className="text-slate-500 text-sm">Loading pricing…</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {(["free", "pro", "forge"] as const).map((plan) => (
-              <div key={plan} className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                <p className="text-white font-semibold capitalize">{plan} plan</p>
+              <div key={plan} className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
+                <p className="text-white font-semibold text-sm capitalize flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${plan === "free" ? "bg-slate-500" : plan === "pro" ? "bg-blue-400" : "bg-violet-400"}`} />
+                  {plan} plan
+                </p>
                 <div className="mt-4 space-y-3">
                   <div>
-                    <label className="text-xs text-slate-400">Monthly price (GBP)</label>
+                    <label className="text-[11px] text-slate-500 uppercase tracking-wider">Monthly (GBP)</label>
                     <input
                       type="number"
                       min={0}
@@ -2388,11 +2451,11 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                       value={config.planPrices[plan].monthly}
                       onChange={(e) => updatePrice(plan, "monthly", e.target.value)}
                       disabled={role !== "superadmin"}
-                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-white"
+                      className="mt-1 w-full rounded-lg border border-slate-700/50 bg-slate-950/60 px-3 py-2 text-white text-sm"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Yearly price (per month, GBP)</label>
+                    <label className="text-[11px] text-slate-500 uppercase tracking-wider">Yearly /mo (GBP)</label>
                     <input
                       type="number"
                       min={0}
@@ -2400,7 +2463,7 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                       value={config.planPrices[plan].yearly}
                       onChange={(e) => updatePrice(plan, "yearly", e.target.value)}
                       disabled={role !== "superadmin"}
-                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-white"
+                      className="mt-1 w-full rounded-lg border border-slate-700/50 bg-slate-950/60 px-3 py-2 text-white text-sm"
                     />
                   </div>
                 </div>
@@ -2410,9 +2473,12 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Most Popular Plan</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Star size={14} className="text-amber-400" />
+            Most Popular Plan
+          </h3>
           <select
             value={config.mostPopularPlanId}
             onChange={(e) => setConfig((prev) => ({
@@ -2420,7 +2486,7 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
               mostPopularPlanId: e.target.value === "pro" ? "pro" : "forge",
             }))}
             disabled={role !== "superadmin"}
-            className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+            className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-white text-sm"
           >
             <option value="pro">Pro</option>
             <option value="forge">Forge</option>
@@ -2441,12 +2507,12 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                 }))}
                 disabled={role !== "superadmin"}
               />
-              Enable trial
+              Enabled
             </label>
           </div>
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             <div>
-              <label className="text-xs text-slate-400">Trial label</label>
+              <label className="text-[11px] text-slate-500 uppercase tracking-wider">Trial label</label>
               <input
                 type="text"
                 value={config.trialOffer.label}
@@ -2455,12 +2521,12 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                   trialOffer: { ...prev.trialOffer, label: e.target.value },
                 }))}
                 disabled={role !== "superadmin"}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-white"
+                className="mt-1 w-full rounded-lg border border-slate-700/50 bg-slate-950/60 px-3 py-2 text-white text-sm"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400">First month price (GBP)</label>
+                <label className="text-[11px] text-slate-500 uppercase tracking-wider">First month (GBP)</label>
                 <input
                   type="number"
                   min={0}
@@ -2474,11 +2540,11 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                     },
                   }))}
                   disabled={role !== "superadmin"}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-white"
+                  className="mt-1 w-full rounded-lg border border-slate-700/50 bg-slate-950/60 px-3 py-2 text-white text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-400">Trial days</label>
+                <label className="text-[11px] text-slate-500 uppercase tracking-wider">Trial days</label>
                 <input
                   type="number"
                   min={1}
@@ -2492,12 +2558,12 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                     },
                   }))}
                   disabled={role !== "superadmin"}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-white"
+                  className="mt-1 w-full rounded-lg border border-slate-700/50 bg-slate-950/60 px-3 py-2 text-white text-sm"
                 />
               </div>
             </div>
             <div>
-              <label className="text-xs text-slate-400">After trial, move to</label>
+              <label className="text-[11px] text-slate-500 uppercase tracking-wider">After trial → plan</label>
               <select
                 value={config.trialOffer.targetPlanId}
                 onChange={(e) => setConfig((prev) => ({
@@ -2508,7 +2574,7 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
                   },
                 }))}
                 disabled={role !== "superadmin"}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-white"
+                className="mt-1 w-full rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-white text-sm"
               >
                 <option value="forge">Forge</option>
                 <option value="pro">Pro</option>
@@ -2522,7 +2588,7 @@ function SubscriptionsPage({ role }: { role: AdminRole }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="rounded-xl bg-violet-500 px-6 py-3 text-white font-semibold disabled:opacity-60"
+          className="rounded-xl bg-violet-500 hover:bg-violet-600 px-6 py-2.5 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
         >
           {saving ? "Saving…" : "Save Pricing"}
         </button>
@@ -2658,126 +2724,153 @@ function ReportsPage({ role }: { role: AdminRole }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-white">Reports & Financials</h2>
-          <p className="text-slate-400 mt-1">Live insights from your registered families</p>
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold text-white">Reports & Financials</h2>
+        <p className="text-slate-500 text-sm mt-0.5">Live insights from your registered families</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <p className="text-slate-400 mb-2">Total Parents</p>
-          <p className="text-3xl font-bold text-white">{stats.totalParents}</p>
-          <p className="text-slate-500 text-sm mt-2">+{signupsLast7} last 7 days</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <Users size={16} className="text-blue-400" />
+            <span className="text-emerald-400 text-xs font-semibold">+{signupsLast7} / 7d</span>
+          </div>
+          <p className="text-2xl font-bold text-white">{stats.totalParents}</p>
+          <p className="text-slate-500 text-xs mt-1">Total Parents</p>
         </div>
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <p className="text-slate-400 mb-2">Total Children</p>
-          <p className="text-3xl font-bold text-white">{stats.totalChildren}</p>
-          <p className="text-slate-500 text-sm mt-2">Avg {avgChildren} per parent</p>
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <UserRound size={16} className="text-emerald-400" />
+            <span className="text-slate-500 text-xs">Avg {avgChildren}/parent</span>
+          </div>
+          <p className="text-2xl font-bold text-white">{stats.totalChildren}</p>
+          <p className="text-slate-500 text-xs mt-1">Total Children</p>
         </div>
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <p className="text-slate-400 mb-2">Premium Parents</p>
-          <p className="text-3xl font-bold text-emerald-300">{premiumCount}</p>
-          <p className="text-slate-500 text-sm mt-2">{freeCount} free plans</p>
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <Zap size={16} className="text-violet-400" />
+            <span className="text-slate-500 text-xs">{freeCount} free</span>
+          </div>
+          <p className="text-2xl font-bold text-violet-300">{premiumCount}</p>
+          <p className="text-slate-500 text-xs mt-1">Premium Parents</p>
         </div>
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <p className="text-slate-400 mb-2">Estimated MRR</p>
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <Wallet size={16} className="text-amber-400" />
+            <span className="text-slate-500 text-xs">+{signupsLast30} / 30d</span>
+          </div>
           {role === "superadmin" ? (
-            <>
-              <p className="text-3xl font-bold text-amber-300">
-                {estimatedMRR > 0 ? `$${estimatedMRR.toFixed(2)}` : "Set pricing in Subscriptions"}
-              </p>
-              <p className="text-slate-500 text-sm mt-2">+{signupsLast30} signups last 30 days</p>
-            </>
+            <p className="text-2xl font-bold text-amber-300">
+              {estimatedMRR > 0 ? `$${estimatedMRR.toFixed(2)}` : "—"}
+            </p>
           ) : (
-            <p className="text-slate-500 text-sm mt-2">Financials are visible to super admins only.</p>
+            <p className="text-sm text-slate-500">Super admin only</p>
           )}
+          <p className="text-slate-500 text-xs mt-1">Estimated MRR</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Financials Snapshot</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <BarChart3 size={14} className="text-emerald-400" />
+            Financials Snapshot
+          </h3>
           {role === "superadmin" ? (
-            <div className="space-y-2 text-slate-300 text-sm">
-              <div className="flex justify-between"><span>Total Points Earned</span><span className="text-white">{stats.totalPointsEarned}</span></div>
-              <div className="flex justify-between"><span>Premium Conversion</span><span className="text-white">{parents.length === 0 ? "0%" : `${Math.round((premiumCount / parents.length) * 100)}%`}</span></div>
-              <div className="flex justify-between"><span>Paid Pro</span><span className="text-white">{proCount}</span></div>
-              <div className="flex justify-between"><span>Paid Forge</span><span className="text-white">{forgeCount}</span></div>
-              <div className="flex justify-between"><span>Money earned (30d)</span><span className="text-white">${moneyLast30.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Money earned (6m)</span><span className="text-white">${moneyLast6Months.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Money earned (1y)</span><span className="text-white">${moneyLast12Months.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>New Parents (7d)</span><span className="text-white">{signupsLast7}</span></div>
-              <div className="flex justify-between"><span>New Parents (30d)</span><span className="text-white">{signupsLast30}</span></div>
+            <div className="space-y-2.5">
+              {[
+                { label: "Total Points Earned", value: stats.totalPointsEarned.toLocaleString(), color: "text-white" },
+                { label: "Premium Conversion", value: parents.length === 0 ? "0%" : `${Math.round((premiumCount / parents.length) * 100)}%`, color: "text-emerald-400" },
+                { label: "Paid Pro", value: proCount, color: "text-white" },
+                { label: "Paid Forge", value: forgeCount, color: "text-white" },
+                { label: "Revenue (30d)", value: `$${moneyLast30.toFixed(2)}`, color: "text-amber-300" },
+                { label: "Revenue (6m)", value: `$${moneyLast6Months.toFixed(2)}`, color: "text-amber-300" },
+                { label: "Revenue (1y)", value: `$${moneyLast12Months.toFixed(2)}`, color: "text-amber-300" },
+                { label: "New Parents (7d)", value: signupsLast7, color: "text-white" },
+                { label: "New Parents (30d)", value: signupsLast30, color: "text-white" },
+              ].map((row, i) => (
+                <div key={i} className="flex items-center justify-between py-1 border-b border-slate-700/30 last:border-0">
+                  <span className="text-slate-400 text-xs">{row.label}</span>
+                  <span className={`text-sm font-semibold ${row.color}`}>{row.value}</span>
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-slate-500 text-sm">Financials are visible to super admins only.</p>
           )}
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Admin Actions</h3>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={exportParents}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-sm text-white hover:bg-slate-800"
-            >
-              Export Parents CSV
-            </button>
-            <button
-              onClick={exportChildren}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-sm text-white hover:bg-slate-800"
-            >
-              Export Children CSV
-            </button>
-            <button
-              onClick={exportMarketingEmails}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-sm text-white hover:bg-slate-800"
-            >
-              Export Marketing Emails
-            </button>
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <Download size={14} className="text-blue-400" />
+            Export Data
+          </h3>
+          <div className="flex flex-col gap-2">
+            {[
+              { label: "Export Parents CSV", desc: `${parents.length} records`, action: exportParents },
+              { label: "Export Children CSV", desc: `${children.length} records`, action: exportChildren },
+              { label: "Export Marketing Emails", desc: "All parent emails", action: exportMarketingEmails },
+            ].map((btn, i) => (
+              <button
+                key={i}
+                onClick={btn.action}
+                className="w-full flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-white hover:bg-slate-700/40 transition-colors"
+              >
+                <div className="text-left">
+                  <p className="font-medium">{btn.label}</p>
+                  <p className="text-slate-500 text-xs">{btn.desc}</p>
+                </div>
+                <Download size={14} className="text-slate-500" />
+              </button>
+            ))}
           </div>
-          <p className="text-slate-500 text-xs mt-3">Exports use live Supabase data.</p>
+          <p className="text-slate-500 text-[11px] mt-3">Live Supabase data. Downloads instantly.</p>
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Financial Year Downloads (Apr - Mar)</h3>
+      <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <Wallet size={14} className="text-amber-400" />
+          Financial Year Downloads
+          <span className="text-slate-500 text-[11px] font-normal ml-1">(Apr – Mar)</span>
+        </h3>
         {role === "superadmin" ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {financialYears.map((year) => (
-              <div key={year.label} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
+              <div key={year.label} className="flex items-center justify-between rounded-xl border border-slate-700/30 bg-slate-900/40 px-4 py-3">
                 <div>
-                  <p className="text-white font-medium">{year.label}</p>
-                  <p className="text-slate-500 text-xs">
-                    {year.start.toLocaleDateString()} - {year.end.toLocaleDateString()}
+                  <p className="text-white text-sm font-medium">{year.label}</p>
+                  <p className="text-slate-500 text-[11px]">
+                    {year.start.toLocaleDateString()} – {year.end.toLocaleDateString()}
                   </p>
                 </div>
                 <button
                   onClick={() => downloadFinancialYear(year.label, year.start, year.end)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                  className="px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-600 text-white text-xs font-medium transition-colors"
                 >
-                  Download CSV
+                  Download
                 </button>
               </div>
             ))}
-            <p className="text-slate-500 text-xs">Financial years are auto-saved and ready for export.</p>
           </div>
         ) : (
           <p className="text-slate-500 text-sm">Financial year exports are visible to super admins only.</p>
         )}
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Top Children by Points</h3>
+      <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <Star size={14} className="text-amber-400" />
+          Top Children by Points
+        </h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left border-b border-slate-700">
-                <th className="pb-3 text-slate-400 font-medium">Child</th>
-                <th className="pb-3 text-slate-400 font-medium">Parent</th>
-                <th className="pb-3 text-slate-400 font-medium">Points</th>
+              <tr className="border-b border-slate-700/50">
+                <th className="pb-2 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">#</th>
+                <th className="pb-2 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Child</th>
+                <th className="pb-2 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Parent</th>
+                <th className="pb-2 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Points</th>
               </tr>
             </thead>
             <tbody>
@@ -2785,13 +2878,17 @@ function ReportsPage({ role }: { role: AdminRole }) {
                 .slice()
                 .sort((a, b) => b.points - a.points)
                 .slice(0, 5)
-                .map((child) => (
-                  <tr key={child.id} className="border-b border-slate-700/50">
-                    <td className="py-4 text-white">{child.name}</td>
-                    <td className="py-4 text-slate-300">{child.parentName}</td>
-                    <td className="py-4 text-amber-400 font-semibold">{child.points}</td>
+                .map((child, i) => (
+                  <tr key={child.id} className="border-b border-slate-700/20 last:border-0">
+                    <td className="py-3 text-slate-500 text-sm">{i + 1}</td>
+                    <td className="py-3 text-white text-sm font-medium">{child.name}</td>
+                    <td className="py-3 text-slate-400 text-sm">{child.parentName}</td>
+                    <td className="py-3 text-right text-amber-400 text-sm font-bold">{child.points.toLocaleString()}</td>
                   </tr>
                 ))}
+              {children.length === 0 && (
+                <tr><td colSpan={4} className="py-8 text-center text-slate-500 text-sm">No children data yet</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -2799,6 +2896,20 @@ function ReportsPage({ role }: { role: AdminRole }) {
     </div>
   );
 }
+
+const ALL_ADMIN_PAGES: { key: AdminPage; label: string }[] = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "parents", label: "Parents" },
+  { key: "children", label: "Children" },
+  { key: "tasks", label: "Tasks" },
+  { key: "rewards", label: "Rewards" },
+  { key: "learning", label: "Learning Content" },
+  { key: "testimonials", label: "Testimonials" },
+  { key: "support", label: "Support Tickets" },
+  { key: "data-exports", label: "Data Exports" },
+  { key: "subscriptions", label: "Subscriptions" },
+  { key: "reports", label: "Reports" },
+];
 
 function AdminAccessPage({
   role,
@@ -2814,6 +2925,38 @@ function AdminAccessPage({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [selectedPages, setSelectedPages] = useState<AdminPage[]>([]);
+  const [editingPermissions, setEditingPermissions] = useState<string | null>(null);
+
+  // Combine all admins: env-based + manually added
+  const allAdmins: (AdminUser & { isFromEnv: boolean })[] = [
+    // Super admins from env
+    ...SUPER_ADMIN_EMAILS.map((email) => {
+      const existing = adminUsers.find((a) => a.email === email);
+      return {
+        email,
+        role: "superadmin" as AdminRole,
+        createdAt: existing?.createdAt ?? "System",
+        allowedPages: existing?.allowedPages,
+        isFromEnv: true,
+      };
+    }),
+    // Regular admins from env
+    ...ADMIN_EMAILS.filter((email) => !SUPER_ADMIN_EMAILS.includes(email)).map((email) => {
+      const existing = adminUsers.find((a) => a.email === email);
+      return {
+        email,
+        role: (existing?.role ?? "admin") as AdminRole,
+        createdAt: existing?.createdAt ?? "System",
+        allowedPages: existing?.allowedPages,
+        isFromEnv: true,
+      };
+    }),
+    // Manually added admins (not in env)
+    ...adminUsers
+      .filter((a) => !SUPER_ADMIN_EMAILS.includes(a.email) && !ADMIN_EMAILS.includes(a.email))
+      .map((a) => ({ ...a, isFromEnv: false })),
+  ];
 
   const handleAdd = () => {
     setError("");
@@ -2849,6 +2992,7 @@ function AdminAccessPage({
         role: newRole,
         createdAt: new Date().toISOString(),
         passwordHash,
+        allowedPages: newRole === "superadmin" ? undefined : selectedPages.length > 0 ? selectedPages : undefined,
       };
 
       onUpdate([
@@ -2863,6 +3007,7 @@ function AdminAccessPage({
             email: normalized,
             role: newRole,
             password_hash: passwordHash,
+            allowed_pages: newRole === "superadmin" ? null : selectedPages.length > 0 ? selectedPages : null,
             updated_at: new Date().toISOString(),
           });
       }
@@ -2871,20 +3016,29 @@ function AdminAccessPage({
       setNewRole("admin");
       setPassword("");
       setConfirmPassword("");
+      setSelectedPages([]);
     });
   };
 
   const handleRoleChange = (targetEmail: string, nextRole: AdminRole) => {
     if (role !== "superadmin") return;
-    const updated = adminUsers.map((admin) =>
-      admin.email === targetEmail ? { ...admin, role: nextRole } : admin
-    );
-    onUpdate(updated);
+    const existingAdmin = adminUsers.find((a) => a.email === targetEmail);
+    if (existingAdmin) {
+      const updated = adminUsers.map((admin) =>
+        admin.email === targetEmail ? { ...admin, role: nextRole, allowedPages: nextRole === "superadmin" ? undefined : admin.allowedPages } : admin
+      );
+      onUpdate(updated);
+    } else {
+      // Env-based admin not in adminUsers yet - add them
+      onUpdate([
+        ...adminUsers,
+        { email: targetEmail, role: nextRole, createdAt: new Date().toISOString() },
+      ]);
+    }
     if (isSupabaseConfigured()) {
       supabase
         .from("admin_users")
-        .update({ role: nextRole, updated_at: new Date().toISOString() })
-        .eq("email", targetEmail);
+        .upsert({ email: targetEmail, role: nextRole, updated_at: new Date().toISOString() });
     }
   };
 
@@ -2896,22 +3050,57 @@ function AdminAccessPage({
     }
   };
 
+  const handlePermissionsUpdate = (targetEmail: string, pages: AdminPage[]) => {
+    if (role !== "superadmin") return;
+    const existingAdmin = adminUsers.find((a) => a.email === targetEmail);
+    const adminData = allAdmins.find((a) => a.email === targetEmail);
+    if (existingAdmin) {
+      const updated = adminUsers.map((admin) =>
+        admin.email === targetEmail ? { ...admin, allowedPages: pages.length > 0 ? pages : undefined } : admin
+      );
+      onUpdate(updated);
+    } else if (adminData) {
+      // Env-based admin, add to adminUsers with permissions
+      onUpdate([
+        ...adminUsers,
+        { email: targetEmail, role: adminData.role, createdAt: new Date().toISOString(), allowedPages: pages.length > 0 ? pages : undefined },
+      ]);
+    }
+    if (isSupabaseConfigured()) {
+      supabase
+        .from("admin_users")
+        .upsert({ email: targetEmail, allowed_pages: pages.length > 0 ? pages : null, updated_at: new Date().toISOString() });
+    }
+    setEditingPermissions(null);
+  };
+
+  const togglePage = (page: AdminPage, targetArray: AdminPage[], setter: (pages: AdminPage[]) => void) => {
+    if (targetArray.includes(page)) {
+      setter(targetArray.filter((p) => p !== page));
+    } else {
+      setter([...targetArray, page]);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-white">Admin Access</h2>
-        <p className="text-slate-400 mt-1">Super admins can create and manage other admins.</p>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <ShieldCheck className="text-violet-400" size={20} />
+          Admin Access
+        </h2>
+        <p className="text-slate-500 text-sm mt-0.5">Super admins can create, manage, and control permissions for other admins.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Create Admin</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-4">Create Admin</h3>
           <div className="space-y-3">
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@familyforge.com"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
               disabled={role !== "superadmin"}
             />
             <input
@@ -2919,7 +3108,7 @@ function AdminAccessPage({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Set admin password"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
               disabled={role !== "superadmin"}
             />
             <input
@@ -2927,18 +3116,47 @@ function AdminAccessPage({
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm password"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
               disabled={role !== "superadmin"}
             />
             <select
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as AdminRole)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
               disabled={role !== "superadmin"}
             >
               <option value="admin">Admin</option>
               <option value="superadmin">Super Admin</option>
             </select>
+            
+            {newRole === "admin" && (
+              <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-700/50">
+                <p className="text-sm text-slate-400 mb-3">Menu Access (leave empty for full access):</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ALL_ADMIN_PAGES.map((page) => (
+                    <label
+                      key={page.key}
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                        selectedPages.includes(page.key) ? "bg-violet-500/20 border border-violet-500/50" : "hover:bg-slate-800"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPages.includes(page.key)}
+                        onChange={() => togglePage(page.key, selectedPages, setSelectedPages)}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-violet-500 focus:ring-violet-500"
+                        disabled={role !== "superadmin"}
+                      />
+                      <span className="text-white text-sm">{page.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedPages.length > 0 && (
+                  <p className="text-xs text-violet-400 mt-2">{selectedPages.length} pages selected</p>
+                )}
+              </div>
+            )}
+            
             <button
               onClick={handleAdd}
               disabled={role !== "superadmin"}
@@ -2953,36 +3171,165 @@ function AdminAccessPage({
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Current Admins</h3>
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-4">Current Admins ({allAdmins.length})</h3>
           <div className="space-y-3">
-            {adminUsers.length === 0 ? (
-              <p className="text-slate-500 text-sm">No extra admins yet.</p>
+            {allAdmins.length === 0 ? (
+              <p className="text-slate-500 text-sm">No admins configured.</p>
             ) : (
-              adminUsers.map((admin) => (
-                <div key={admin.email} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-                  <div>
-                    <p className="text-white text-sm font-medium">{admin.email}</p>
-                    <p className="text-slate-500 text-xs">{admin.role}</p>
+              allAdmins.map((admin) => (
+                <div key={admin.email} className="rounded-xl border border-slate-700 bg-slate-900/60 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white text-sm font-medium">{admin.email}</p>
+                        {admin.isFromEnv && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">System</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${admin.role === "superadmin" ? "bg-amber-500/20 text-amber-400" : "bg-slate-700 text-slate-400"}`}>
+                          {admin.role === "superadmin" ? "Super Admin" : "Admin"}
+                        </span>
+                        {admin.role === "admin" && admin.allowedPages && admin.allowedPages.length > 0 && (
+                          <span className="text-xs text-slate-500">{admin.allowedPages.length} pages</span>
+                        )}
+                        {admin.role === "admin" && (!admin.allowedPages || admin.allowedPages.length === 0) && (
+                          <span className="text-xs text-emerald-500">Full access</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!SUPER_ADMIN_EMAILS.includes(admin.email) && (
+                        <select
+                          value={admin.role}
+                          onChange={(e) => handleRoleChange(admin.email, e.target.value as AdminRole)}
+                          className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1 text-xs text-white"
+                          disabled={role !== "superadmin"}
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="superadmin">Super Admin</option>
+                        </select>
+                      )}
+                      {admin.role === "admin" && role === "superadmin" && (
+                        <button
+                          onClick={() => setEditingPermissions(editingPermissions === admin.email ? null : admin.email)}
+                          className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+                            editingPermissions === admin.email ? "bg-violet-500 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                          }`}
+                        >
+                          Permissions
+                        </button>
+                      )}
+                      {!admin.isFromEnv && (
+                        <button
+                          onClick={() => handleRemove(admin.email)}
+                          className="text-xs text-red-300 hover:text-red-200 px-2 py-1"
+                          disabled={role !== "superadmin"}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={admin.role}
-                      onChange={(e) => handleRoleChange(admin.email, e.target.value as AdminRole)}
-                      className="rounded-lg border border-slate-700 bg-slate-900/60 px-2 py-1 text-xs text-white"
-                      disabled={role !== "superadmin"}
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="superadmin">Super Admin</option>
-                    </select>
-                    <button
-                      onClick={() => handleRemove(admin.email)}
-                      className="text-xs text-red-300 hover:text-red-200"
-                      disabled={role !== "superadmin"}
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  
+                  {/* Permissions Editor Dropdown */}
+                  {editingPermissions === admin.email && admin.role === "admin" && (
+                    <div className="border-t border-slate-700 p-4 bg-slate-950/50">
+                      <p className="text-sm text-slate-400 mb-3">Select which menu items this admin can see:</p>
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        {ALL_ADMIN_PAGES.map((page) => {
+                          const currentPages = admin.allowedPages || [];
+                          const isSelected = currentPages.includes(page.key);
+                          return (
+                            <label
+                              key={page.key}
+                              className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                                isSelected ? "bg-violet-500/20 border border-violet-500/50" : "hover:bg-slate-800 border border-transparent"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  const newPages = isSelected
+                                    ? currentPages.filter((p) => p !== page.key)
+                                    : [...currentPages, page.key];
+                                  // Check if admin exists in adminUsers - if not (env admin), add them
+                                  const existingAdmin = adminUsers.find((a) => a.email === admin.email);
+                                  if (existingAdmin) {
+                                    const updated = adminUsers.map((a) =>
+                                      a.email === admin.email ? { ...a, allowedPages: newPages.length > 0 ? newPages : undefined } : a
+                                    );
+                                    onUpdate(updated);
+                                  } else {
+                                    // Add env admin to adminUsers with their permissions
+                                    onUpdate([
+                                      ...adminUsers,
+                                      { email: admin.email, role: admin.role, createdAt: new Date().toISOString(), allowedPages: newPages.length > 0 ? newPages : undefined },
+                                    ]);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-violet-500 focus:ring-violet-500"
+                              />
+                              <span className="text-white text-sm">{page.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              const allPages = ALL_ADMIN_PAGES.map((p) => p.key);
+                              const existingAdmin = adminUsers.find((a) => a.email === admin.email);
+                              if (existingAdmin) {
+                                const updated = adminUsers.map((a) =>
+                                  a.email === admin.email ? { ...a, allowedPages: allPages } : a
+                                );
+                                onUpdate(updated);
+                              } else {
+                                onUpdate([
+                                  ...adminUsers,
+                                  { email: admin.email, role: admin.role, createdAt: new Date().toISOString(), allowedPages: allPages },
+                                ]);
+                              }
+                            }}
+                            className="text-xs px-3 py-1 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            onClick={() => {
+                              const existingAdmin = adminUsers.find((a) => a.email === admin.email);
+                              if (existingAdmin) {
+                                const updated = adminUsers.map((a) =>
+                                  a.email === admin.email ? { ...a, allowedPages: undefined } : a
+                                );
+                                onUpdate(updated);
+                              } else {
+                                onUpdate([
+                                  ...adminUsers,
+                                  { email: admin.email, role: admin.role, createdAt: new Date().toISOString(), allowedPages: undefined },
+                                ]);
+                              }
+                            }}
+                            className="text-xs px-3 py-1 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600"
+                          >
+                            Clear (Full Access)
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handlePermissionsUpdate(admin.email, admin.allowedPages || []);
+                          }}
+                          className="text-xs px-4 py-1.5 rounded-lg bg-violet-500 text-white hover:bg-violet-600 font-medium"
+                        >
+                          Save & Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -3031,30 +3378,30 @@ function SupportTicketsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-white">Support Tickets</h2>
-        <p className="text-slate-400 mt-1">Track and resolve user issues.</p>
+        <h2 className="text-2xl font-bold text-white">Support Tickets</h2>
+        <p className="text-slate-500 text-sm mt-0.5">Track and resolve user issues.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Create Ticket</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-4">Create Ticket</h3>
           <div className="space-y-3">
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="parent@email.com"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
             />
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Issue summary"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
             />
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as SupportTicket["priority"])}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-white"
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-2.5 text-white text-sm"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -3062,36 +3409,39 @@ function SupportTicketsPage() {
             </select>
             <button
               onClick={addTicket}
-              className="w-full rounded-xl bg-emerald-500 py-3 text-white font-semibold"
+              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 py-2.5 text-white text-sm font-semibold transition-colors"
             >
               Add Ticket
             </button>
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Open Tickets</h3>
+        <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50">
+          <h3 className="text-sm font-semibold text-white mb-4">Open Tickets ({tickets.length})</h3>
           {tickets.length === 0 ? (
-            <p className="text-slate-500 text-sm">No tickets yet. Connect to your support table to auto-sync.</p>
+            <div className="py-8 text-center">
+              <LifeBuoy size={28} className="text-slate-600 mx-auto mb-2" />
+              <p className="text-slate-500 text-sm">No tickets yet.</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {tickets.map((ticket) => (
-                <div key={ticket.id} className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
+                <div key={ticket.id} className="rounded-xl border border-slate-700/30 bg-slate-900/40 px-4 py-3">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white text-sm font-medium">{ticket.subject}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white text-sm font-medium truncate">{ticket.subject}</p>
                       <p className="text-slate-500 text-xs">{ticket.email}</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${ticket.priority === "high" ? "bg-red-500/20 text-red-300" : ticket.priority === "medium" ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full ml-2 whitespace-nowrap ${ticket.priority === "high" ? "bg-red-500/20 text-red-400" : ticket.priority === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"}`}>
                       {ticket.priority}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-slate-500 text-xs">{new Date(ticket.createdAt).toLocaleDateString()}</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-slate-600 text-[11px]">{new Date(ticket.createdAt).toLocaleDateString()}</p>
                     <select
                       value={ticket.status}
                       onChange={(e) => updateStatus(ticket.id, e.target.value as SupportTicket["status"])}
-                      className="rounded-lg border border-slate-700 bg-slate-950/80 px-2 py-1 text-xs text-white"
+                      className="rounded-lg border border-slate-700/50 bg-slate-950/80 px-2 py-1 text-[11px] text-white"
                     >
                       <option value="open">Open</option>
                       <option value="pending">Pending</option>
@@ -3236,30 +3586,27 @@ function DataExportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-            Data Export Requests
-            {pendingCount > 0 && (
-              <span className="px-3 py-1 bg-amber-500 text-white text-sm font-semibold rounded-full">
-                {pendingCount} pending
-              </span>
-            )}
-          </h2>
-          <p className="text-slate-400 mt-1">Manage user data export requests for GDPR compliance</p>
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          Data Export Requests
+          {pendingCount > 0 && (
+            <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-full border border-amber-500/30">
+              {pendingCount} pending
+            </span>
+          )}
+        </h2>
+        <p className="text-slate-500 text-sm mt-0.5">Manage user data export requests for GDPR compliance</p>
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex gap-2">
         {(['all', 'pending', 'processing', 'completed', 'failed'] as const).map(status => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all capitalize ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
               statusFilter === status
-                ? 'bg-blue-500 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-slate-800/60 text-slate-500 hover:text-slate-300 border border-slate-700/50'
             }`}
           >
             {status}
@@ -3267,17 +3614,16 @@ function DataExportsPage() {
         ))}
       </div>
 
-      {/* Requests Table */}
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-slate-700 bg-slate-800/50">
-              <th className="text-left p-4 text-slate-400 font-medium">User</th>
-              <th className="text-left p-4 text-slate-400 font-medium">Email</th>
-              <th className="text-left p-4 text-slate-400 font-medium">Status</th>
-              <th className="text-left p-4 text-slate-400 font-medium">Requested</th>
-              <th className="text-left p-4 text-slate-400 font-medium">Processed</th>
-              <th className="text-right p-4 text-slate-400 font-medium">Actions</th>
+            <tr className="border-b border-slate-700/50">
+              <th className="text-left p-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">User</th>
+              <th className="text-left p-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Email</th>
+              <th className="text-left p-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+              <th className="text-left p-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Requested</th>
+              <th className="text-left p-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Processed</th>
+              <th className="text-right p-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -3356,7 +3702,7 @@ function DataExportsPage() {
                         onClick={() => setSelectedRequest(request)}
                         className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                       >
-                        👁️
+                        <Eye size={14} className="text-slate-500" />
                       </button>
                     </div>
                   </td>
@@ -3369,15 +3715,15 @@ function DataExportsPage() {
 
       {/* Detail Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setSelectedRequest(null)}>
-          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-700 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">Export Request Details</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setSelectedRequest(null)}>
+          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-700/50 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold text-white">Export Request Details</h3>
               <button
                 onClick={() => setSelectedRequest(null)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"
+                className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -3450,12 +3796,12 @@ function DataExportsPage() {
                   >
                     {isGenerating ? (
                       <>
-                        <span className="animate-spin">⏳</span>
+                        <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
                         Generating...
                       </>
                     ) : (
                       <>
-                        📦 Generate & Send Export
+                        Generate & Send Export
                       </>
                     )}
                   </button>
@@ -3474,7 +3820,7 @@ function DataExportsPage() {
                   rel="noopener noreferrer"
                   className="flex-1 py-2.5 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors text-center"
                 >
-                  📥 Download Export File
+                  Download Export File
                 </a>
               )}
               <button
@@ -3482,6 +3828,689 @@ function DataExportsPage() {
                 className="px-4 py-2.5 bg-slate-700 text-white rounded-xl font-semibold hover:bg-slate-600 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Email System Pro Page
+const EMAIL_TEMPLATES = [
+  { id: 'welcome', name: 'Welcome Email', description: 'Sent when a new user signs up', trigger: 'User registration', category: 'Onboarding' },
+  { id: 'task_reminder', name: 'Task Reminder', description: 'Sent when tasks are due or overdue', trigger: 'Task due date', category: 'Engagement' },
+  { id: 'achievement_alert', name: 'Achievement Alert', description: 'Celebrate when children reach milestones', trigger: 'Task completion / Streak / Rank', category: 'Engagement' },
+  { id: 'weekly_report', name: 'Weekly Report', description: 'Summary of family progress every week', trigger: 'Weekly cron (Sundays)', category: 'Reports' },
+  { id: 'family_invite', name: 'Family Invitation', description: 'Invite co-parents or guardians', trigger: 'Parent sends invitation', category: 'Onboarding' },
+  { id: 'data_export_ready', name: 'Data Export Ready', description: 'GDPR compliance - notify when data export is complete', trigger: 'Admin processes export', category: 'System' },
+  { id: 'abandoned_payment_1hr', name: 'Abandoned Payment (1hr)', description: 'Gentle nudge after payment abandonment', trigger: '1 hour after abandonment', category: 'Conversion' },
+  { id: 'abandoned_payment_24hr', name: 'Abandoned Payment (24hr)', description: 'Social proof and testimonials', trigger: '24 hours after abandonment', category: 'Conversion' },
+  { id: 'abandoned_payment_followup', name: 'Abandoned Payment Follow-up', description: 'Days 2-7 follow-up sequence', trigger: 'Daily (days 2-7)', category: 'Conversion' },
+  { id: 'free_plan_weekly', name: 'Free Plan Weekly Nudge', description: 'Shows what Pro features they are missing', trigger: 'Weekly (Mondays)', category: 'Conversion' },
+  { id: 'email_verification_code', name: 'Email Verification Code', description: 'Sends a 4-digit verification code during onboarding', trigger: 'After PIN creation', category: 'Onboarding' },
+];
+
+const AI_EMAIL_PROMPT = `You are a professional email designer for FamilyForge, a premium parenting app. Create a beautiful, responsive HTML email with these EXACT specifications:
+
+**BRAND IDENTITY:**
+- Company: FamilyForge
+- Tagline: "Rewards & Growth for Kids"
+- Logo URL: https://xyntgrgbacvnrdggtpkl.supabase.co/storage/v1/object/public/public-assets/logo.png
+- Logo dimensions: 80x80px, centered
+
+**CRITICAL - FULL-BLEED BACKGROUND (MUST FOLLOW):**
+The email background color MUST fill the ENTIRE viewport with NO white space. Use this exact structure:
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0f0a1f;">
+<table width="100%" height="100%" cellpadding="0" cellspacing="0" style="background-color:#0f0a1f;min-height:100vh;">
+<tr><td align="center" valign="top" style="padding:40px 20px;">
+  <!-- Your content here, max-width: 600px -->
+</td></tr>
+</table>
+</body>
+</html>
+\`\`\`
+- body AND outer table MUST have the same background-color
+- Use min-height:100vh on the table
+- Set margin:0 and padding:0 on body
+- Never leave the HTML/body background as default white
+
+**DESIGN REQUIREMENTS (MUST FOLLOW EXACTLY):**
+
+1. OVERALL THEME:
+   - Background color: #0f0a1f (dark sophisticated theme) - MUST cover entire page
+   - Max width: 600px, centered
+   - Font family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif
+
+2. LOGO HEADER:
+   - Centered logo with glass-morphism effect
+   - Logo container: background rgba(139, 92, 246, 0.15), border-radius 24px, padding 20px
+   - Subtle glow effect: box-shadow 0 0 40px rgba(139, 92, 246, 0.3)
+   - Border: 1px solid rgba(139, 92, 246, 0.3)
+
+3. CONTENT CARDS:
+   - Background: linear-gradient(135deg, rgba(30, 20, 50, 0.9), rgba(20, 15, 40, 0.95))
+   - Border: 1px solid gradient from #8b5cf6 (purple) to #4f46e5 (deep indigo)
+   - Border-radius: 16px
+   - Padding: 32px
+   - Box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4)
+
+4. NUMBERED STEP CARDS (if applicable):
+   - Step 1: Green accent (#10b981), number in circle with green glow
+   - Step 2: Purple accent (#8b5cf6), number in circle with purple glow
+   - Step 3: Gold accent (#f59e0b), number in circle with gold glow
+   - Each step card has subtle gradient background
+
+5. QUOTE/HIGHLIGHT BLOCKS:
+   - Left border: 4px solid gradient (#8b5cf6 to #a78bfa)
+   - Background: rgba(139, 92, 246, 0.1)
+   - Border-radius: 0 12px 12px 0
+   - Italic text, light purple color (#a78bfa)
+
+6. CTA BUTTON:
+   - Background: linear-gradient(135deg, #8b5cf6, #6366f1, #4f46e5)
+   - Text: White, bold, 16px
+   - Padding: 16px 40px
+   - Border-radius: 12px
+   - Box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4)
+   - Hover effect hint in alt text
+
+7. TYPOGRAPHY:
+   - Headings: White (#ffffff), bold
+   - Body text: #cbd5e1 (light slate)
+   - Accent text: #a78bfa (light purple)
+   - Links: #8b5cf6 (purple)
+
+8. FOOTER:
+   - Pill-style links: background rgba(139, 92, 246, 0.2), border-radius 20px, padding 8px 16px
+   - Separator: Gradient line from transparent to purple to transparent
+   - Copyright text: #64748b (muted slate)
+   - Social links as icon buttons if applicable
+
+9. SPACING:
+   - Section margins: 24px
+   - Inner padding: 20-32px
+   - Line height: 1.6 for body text
+
+**EMAIL CONTENT PLACEHOLDERS:**
+Use these placeholders that will be replaced dynamically:
+- {{parentName}} - Parent's first name
+- {{childName}} - Child's name
+- {{appUrl}} - https://familyforge.app
+- {{unsubscribeUrl}} - Unsubscribe link
+- {{currentYear}} - Current year
+
+**OUTPUT FORMAT:**
+- Complete HTML document with DOCTYPE, html, head, body tags
+- Use inline CSS (email-safe)
+- Use tables for layout (email compatibility)
+- ALWAYS set background color on body AND outer table (no white space)
+- Include both HTML and plain text versions separated by ---PLAIN_TEXT---
+- Test with dark mode email clients in mind
+
+---
+
+**EMAIL TO CREATE:**
+`;
+
+function EmailSystemProPage() {
+  const parents = useAdminStore((s) => s.parents);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [sendMode, setSendMode] = useState<'single' | 'all' | 'manual'>('single');
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
+  const [manualRecipients, setManualRecipients] = useState('');
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [promptDescription, setPromptDescription] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [showNewEmailModal, setShowNewEmailModal] = useState(false);
+  const [newEmail, setNewEmail] = useState({ name: '', description: '', trigger: '', category: 'Custom' });
+  const [customEmails, setCustomEmails] = useState<typeof EMAIL_TEMPLATES>([]);
+  const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+
+  const allTemplates = [...EMAIL_TEMPLATES, ...customEmails];
+
+  const parseRecipientList = (value: string) =>
+    value
+      .split(',')
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const manualRecipientList = parseRecipientList(manualRecipients);
+  const invalidManualRecipients = manualRecipientList.filter((email) => !isValidEmail(email));
+
+  const recipientsForSend =
+    sendMode === 'all'
+      ? parents.map((parent) => parent.email)
+      : sendMode === 'manual'
+      ? manualRecipientList
+      : selectedRecipients;
+
+  const handleSendEmail = async () => {
+    if (!selectedTemplate) return;
+    if (recipientsForSend.length === 0) return;
+    if (sendMode === 'manual' && invalidManualRecipients.length > 0) return;
+    setSendStatus('sending');
+    
+    try {
+      // Build recipients array with email and name
+      const recipients = recipientsForSend.map((email) => {
+        const parent = parents.find((p) => p.email === email);
+        return { email, name: parent?.name || email.split('@')[0] };
+      });
+
+      // Build template-specific data with sensible defaults
+      const templateDataMap: Record<string, Record<string, unknown>> = {
+        welcome: { parentName: recipients[0]?.name || 'there' },
+        email_verification_code: { parentName: recipients[0]?.name || 'there', code: '0000' },
+        task_reminder: { taskTitle: 'Sample Task', assignedTo: 'Your child', pointsValue: 10 },
+        achievement_alert: { childName: 'Your child', achievementTitle: 'Great Job!', achievementDetails: 'Keep up the amazing work!', pointsEarned: 50 },
+        weekly_report: { parentName: recipients[0]?.name || 'there', weekStartDate: 'This week', weekEndDate: 'Today', familyStats: { totalTasksCompleted: 0, totalPointsEarned: 0 } },
+        family_invite: { inviterName: 'Admin', familyName: 'FamilyForge', inviteRole: 'parent', inviteCode: 'ADMIN', expiresAt: 'N/A' },
+        data_export_ready: { downloadUrl: 'https://familyforge.app', expiresAt: 'N/A' },
+        abandoned_payment_1hr: { parentName: recipients[0]?.name || 'there', planName: 'Pro', sessionId: 'admin', specialOffer: '' },
+        abandoned_payment_24hr: { parentName: recipients[0]?.name || 'there', planName: 'Pro', sessionId: 'admin' },
+        abandoned_payment_followup: { parentName: recipients[0]?.name || 'there', dayNumber: 3, sessionId: 'admin' },
+        free_plan_weekly: { parentName: recipients[0]?.name || 'there', childName: 'your kids' },
+      };
+
+      const data = templateDataMap[selectedTemplate] || { parentName: recipients[0]?.name || 'there' };
+
+      // For each recipient, personalize and send
+      const { data: result, error } = await supabase.functions.invoke('send-email', {
+        body: {
+          template: selectedTemplate,
+          recipients,
+          data,
+        },
+      });
+
+      if (error) {
+        console.error('Send email error:', error);
+        setSendStatus('error');
+        setTimeout(() => setSendStatus('idle'), 3000);
+        return;
+      }
+
+      console.log('Send email result:', result);
+      setSendStatus('success');
+      setTimeout(() => {
+        setSendStatus('idle');
+        setSelectedTemplate(null);
+        setSelectedRecipients([]);
+        setManualRecipients('');
+      }, 2000);
+    } catch (err) {
+      console.error('Send email unexpected error:', err);
+      setSendStatus('error');
+      setTimeout(() => setSendStatus('idle'), 3000);
+    }
+  };
+
+  const handleCopyPrompt = async () => {
+    const fullPrompt = AI_EMAIL_PROMPT + promptDescription;
+    await navigator.clipboard.writeText(fullPrompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleAddCustomEmail = () => {
+    if (!newEmail.name.trim()) return;
+    const id = 'custom_' + Date.now();
+    setCustomEmails([...customEmails, { ...newEmail, id }]);
+    setNewEmail({ name: '', description: '', trigger: '', category: 'Custom' });
+    setShowNewEmailModal(false);
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'Onboarding': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'Engagement': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'Reports': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      case 'Conversion': return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+      case 'System': return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+      case 'Custom': return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
+      default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+            <Mail className="text-violet-400" size={32} />
+            Email System Pro
+          </h2>
+          <p className="text-slate-400 mt-1">Manage and send production email templates to your users</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowPromptModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl font-medium hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-500/25"
+          >
+            <Sparkles size={18} />
+            AI Email Generator
+          </button>
+          <button
+            onClick={() => setShowNewEmailModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-colors"
+          >
+            <Plus size={18} />
+            New Email Template
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <Mail size={20} className="text-violet-400" />
+            <span className="text-xs text-slate-400">Total</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{allTemplates.length}</p>
+          <p className="text-slate-400 text-sm mt-1">Email Templates</p>
+        </div>
+        <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <Users size={20} className="text-emerald-400" />
+            <span className="text-xs text-slate-400">Recipients</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{parents.length}</p>
+          <p className="text-slate-400 text-sm mt-1">Available Parents</p>
+        </div>
+        <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <Clock size={20} className="text-amber-400" />
+            <span className="text-xs text-slate-400">Scheduled</span>
+          </div>
+          <p className="text-3xl font-bold text-white">3</p>
+          <p className="text-slate-400 text-sm mt-1">Cron Jobs Active</p>
+        </div>
+        <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <Zap size={20} className="text-blue-400" />
+            <span className="text-xs text-slate-400">Triggers</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{allTemplates.length}</p>
+          <p className="text-slate-400 text-sm mt-1">Event Triggers</p>
+        </div>
+      </div>
+
+      {/* Email Templates Grid */}
+      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Mail size={20} className="text-violet-400" />
+          Email Templates
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {allTemplates.map((template) => (
+            <div
+              key={template.id}
+              className={`relative p-5 rounded-xl border transition-all cursor-pointer ${
+                selectedTemplate === template.id
+                  ? 'bg-violet-500/20 border-violet-500/50 shadow-lg shadow-violet-500/10'
+                  : 'bg-slate-900/60 border-slate-700 hover:border-slate-600'
+              }`}
+              onClick={() => setSelectedTemplate(selectedTemplate === template.id ? null : template.id)}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    selectedTemplate === template.id ? 'bg-violet-500' : 'bg-slate-700'
+                  }`}>
+                    <Mail size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold">{template.name}</h4>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${getCategoryColor(template.category)}`}>
+                      {template.category}
+                    </span>
+                  </div>
+                </div>
+                {selectedTemplate === template.id && (
+                  <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center">
+                    <Check size={14} className="text-white" />
+                  </div>
+                )}
+              </div>
+              <p className="text-slate-400 text-sm mb-3">{template.description}</p>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Zap size={12} />
+                <span>Trigger: {template.trigger}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Send Email Panel */}
+      {selectedTemplate && (
+        <div className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-2xl p-6 border border-violet-500/30">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Send size={20} className="text-violet-400" />
+            Send "{allTemplates.find(t => t.id === selectedTemplate)?.name}"
+          </h3>
+          
+          <div className="space-y-4">
+            {/* Send Mode Toggle */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSendMode('single')}
+                className={`flex-1 py-3 rounded-xl font-medium transition-all ${
+                  sendMode === 'single'
+                    ? 'bg-violet-500 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Send to Selected
+              </button>
+              <button
+                onClick={() => setSendMode('all')}
+                className={`flex-1 py-3 rounded-xl font-medium transition-all ${
+                  sendMode === 'all'
+                    ? 'bg-violet-500 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Send to All ({parents.length})
+              </button>
+              <button
+                onClick={() => setSendMode('manual')}
+                className={`flex-1 py-3 rounded-xl font-medium transition-all ${
+                  sendMode === 'manual'
+                    ? 'bg-violet-500 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Send to Any Emails
+              </button>
+            </div>
+
+            {/* Recipient Selection */}
+            {sendMode === 'single' && (
+              <div className="bg-slate-900/60 rounded-xl p-4 max-h-48 overflow-y-auto">
+                {parents.length === 0 ? (
+                  <p className="text-slate-500 text-sm text-center py-4">No parents available</p>
+                ) : (
+                  <div className="space-y-2">
+                    {parents.map((parent) => (
+                      <label
+                        key={parent.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedRecipients.includes(parent.email)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRecipients([...selectedRecipients, parent.email]);
+                            } else {
+                              setSelectedRecipients(selectedRecipients.filter(r => r !== parent.email));
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-violet-500 focus:ring-violet-500"
+                        />
+                        <div className="flex-1">
+                          <p className="text-white text-sm">{parent.name}</p>
+                          <p className="text-slate-500 text-xs">{parent.email}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sendMode === 'manual' && (
+              <div className="bg-slate-900/60 rounded-xl p-4 space-y-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">Paste emails separated by commas</label>
+                  <textarea
+                    value={manualRecipients}
+                    onChange={(e) => setManualRecipients(e.target.value)}
+                    rows={3}
+                    placeholder="alex@email.com, jamie@email.com"
+                    className="w-full rounded-lg bg-slate-900 border border-slate-700 text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    {manualRecipientList.length} recipient{manualRecipientList.length === 1 ? '' : 's'}
+                  </span>
+                  {invalidManualRecipients.length > 0 && (
+                    <span className="text-red-400">
+                      {invalidManualRecipients.length} invalid email{invalidManualRecipients.length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Send Button */}
+            <button
+              onClick={handleSendEmail}
+              disabled={
+                sendStatus === 'sending' ||
+                recipientsForSend.length === 0 ||
+                (sendMode === 'manual' && invalidManualRecipients.length > 0)
+              }
+              className={`w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                sendStatus === 'success'
+                  ? 'bg-emerald-500 text-white'
+                  : sendStatus === 'error'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
+              }`}
+            >
+              {sendStatus === 'sending' && (
+                <>
+                  <span className="animate-spin">
+                    <Clock size={18} />
+                  </span>
+                  Sending...
+                </>
+              )}
+              {sendStatus === 'success' && (
+                <>
+                  <Check size={18} />
+                  Sent Successfully!
+                </>
+              )}
+              {sendStatus === 'error' && (
+                <>
+                  <X size={18} />
+                  Failed to Send
+                </>
+              )}
+              {sendStatus === 'idle' && (
+                <>
+                  <Send size={18} />
+                  Send Email {recipientsForSend.length > 0 && `(${recipientsForSend.length})`}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Prompt Modal */}
+      {showPromptModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <Sparkles size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">AI Email Generator</h3>
+                    <p className="text-slate-400 text-sm">Generate beautiful HTML emails with ChatGPT</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPromptModal(false)}
+                  className="p-2 rounded-lg hover:bg-slate-800 text-slate-400"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh]">
+              <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                <h4 className="text-white font-medium mb-2 flex items-center gap-2">
+                  <Eye size={16} className="text-violet-400" />
+                  Design Specifications (Auto-included)
+                </h4>
+                <ul className="text-slate-400 text-sm space-y-1">
+                  <li>&#10003; Centered logo with glass-morphism effect and glow</li>
+                  <li>&#10003; Premium purple/indigo gradient borders throughout</li>
+                  <li>&#10003; Dark sophisticated theme (#0f0a1f background)</li>
+                  <li>&#10003; Beautiful numbered step cards (green, purple, gold accents)</li>
+                  <li>&#10003; Elegant quote block with left accent border</li>
+                  <li>&#10003; Gradient CTA button with shadow effects</li>
+                  <li>&#10003; Premium footer with pill-style links</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">
+                  Describe the email you want to create:
+                </label>
+                <textarea
+                  value={promptDescription}
+                  onChange={(e) => setPromptDescription(e.target.value)}
+                  placeholder="Example: Create an email to welcome new parents to FamilyForge. Include 3 steps to get started: 1) Add your children, 2) Create your first task, 3) Set up rewards. Include an inspiring quote about parenting and a CTA button to open the app."
+                  className="w-full h-40 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                />
+              </div>
+
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                <p className="text-amber-400 text-sm">
+                  <strong>How to use:</strong> Click "Copy Full Prompt" below, then paste it into ChatGPT (or any AI). The AI will generate complete HTML email code following FamilyForge's premium design system.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3">
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCopyPrompt}
+                disabled={!promptDescription.trim()}
+                className="flex-1 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl font-semibold hover:from-violet-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {copied ? (
+                  <>
+                    <Check size={18} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={18} />
+                    Copy Full Prompt
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Email Template Modal */}
+      {showNewEmailModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-lg w-full">
+            <div className="p-6 border-b border-slate-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-white">Create New Email Template</h3>
+                <button
+                  onClick={() => setShowNewEmailModal(false)}
+                  className="p-2 rounded-lg hover:bg-slate-800 text-slate-400"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-white font-medium mb-2">Template Name</label>
+                <input
+                  type="text"
+                  value={newEmail.name}
+                  onChange={(e) => setNewEmail({ ...newEmail, name: e.target.value })}
+                  placeholder="e.g., Birthday Reminder"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">Description</label>
+                <textarea
+                  value={newEmail.description}
+                  onChange={(e) => setNewEmail({ ...newEmail, description: e.target.value })}
+                  placeholder="What is this email for?"
+                  className="w-full h-20 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">Trigger Event</label>
+                <input
+                  type="text"
+                  value={newEmail.trigger}
+                  onChange={(e) => setNewEmail({ ...newEmail, trigger: e.target.value })}
+                  placeholder="e.g., Child's birthday approaching"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">Category</label>
+                <select
+                  value={newEmail.category}
+                  onChange={(e) => setNewEmail({ ...newEmail, category: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500"
+                >
+                  <option value="Custom">Custom</option>
+                  <option value="Onboarding">Onboarding</option>
+                  <option value="Engagement">Engagement</option>
+                  <option value="Reports">Reports</option>
+                  <option value="Conversion">Conversion</option>
+                  <option value="System">System</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3">
+              <button
+                onClick={() => setShowNewEmailModal(false)}
+                className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustomEmail}
+                disabled={!newEmail.name.trim()}
+                className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-50"
+              >
+                Create Template
               </button>
             </div>
           </div>

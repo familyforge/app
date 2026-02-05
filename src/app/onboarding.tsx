@@ -116,6 +116,8 @@ import {
   type CurrencyType,
 } from "../lib/utils/currency";
 import { getAppPricingConfig } from "../lib/api/app-settings";
+import { signUp, syncChildToCloud, syncParentToCloud, getCurrentUser, type ChildData, type ParentData } from "../lib/api";
+import { sendWelcomeEmail, sendEmailVerificationCode } from "../lib/api/email";
 import { theme } from "../lib/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -139,6 +141,13 @@ const CHILD_COLORS = [
   "#8B5CF6", "#EC4899", "#06B6D4", "#10B981",
   "#F59E0B", "#EF4444", "#6366F1", "#14B8A6",
 ];
+
+const createUuid = () =>
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 
 // Academic classes
 const ACADEMIC_CLASSES: AcademicClass[] = [
@@ -272,6 +281,9 @@ export default function OnboardingScreen() {
   const selectedPlan = useOnboardingStore((s) => s.selectedPlan);
   const billingCycle = useOnboardingStore((s) => s.billingCycle);
   const avatarUrl = useOnboardingStore((s) => s.avatarUrl);
+  const emailVerificationCode = useOnboardingStore((s) => s.emailVerificationCode);
+  const emailVerificationSentAt = useOnboardingStore((s) => s.emailVerificationSentAt);
+  const emailVerified = useOnboardingStore((s) => s.emailVerified);
 
   // Store actions
   const setStep = useOnboardingStore((s) => s.setStep);
@@ -303,9 +315,13 @@ export default function OnboardingScreen() {
   const setBillingCycle = useOnboardingStore((s) => s.setBillingCycle);
   const setAvatarUrl = useOnboardingStore((s) => s.setAvatarUrl);
   const setAvatarSetupComplete = useOnboardingStore((s) => s.setAvatarSetupComplete);
+  const accountCreated = useOnboardingStore((s) => s.accountCreated);
   const setAccountCreated = useOnboardingStore((s) => s.setAccountCreated);
   const setPaymentComplete = useOnboardingStore((s) => s.setPaymentComplete);
   const markComplete = useOnboardingStore((s) => s.markComplete);
+  const setEmailVerificationCode = useOnboardingStore((s) => s.setEmailVerificationCode);
+  const setEmailVerificationSentAt = useOnboardingStore((s) => s.setEmailVerificationSentAt);
+  const setEmailVerified = useOnboardingStore((s) => s.setEmailVerified);
 
   // Profile and App stores
   const updateProfile = useProfileStore((s) => s.updateProfile);
@@ -330,6 +346,10 @@ export default function OnboardingScreen() {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
+  const [verificationInput, setVerificationInput] = useState("");
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const [showPin, setShowPin] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeChildIndex, setActiveChildIndex] = useState(0);
@@ -349,6 +369,15 @@ export default function OnboardingScreen() {
   }, [step, totalSteps]);
 
   // Loading screen timer - 15 seconds with rotating messages
+
+  // Resend countdown timer
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCountdown]);
   useEffect(() => {
     if (step !== 17) return;
     setLoadingMessageIndex(0);
@@ -374,7 +403,7 @@ export default function OnboardingScreen() {
       case 3: return dailyPainPoints.length > 0;
       case 4: return emotionalTrigger !== null;
       case 5: return guiltReflection !== null;
-      case 6: return fixOneThing.trim().length > 10;
+      case 6: return fixOneThing.trim().length >= 8;
       case 7: return childWorry !== null;
       case 8: return parentFirstName.trim().length > 0;
       case 9: return howToRemember.trim().length > 10;
@@ -390,12 +419,13 @@ export default function OnboardingScreen() {
       case 19: return parentEmail.trim().includes("@");
       case 20:
         return pin.length === 6;
-      case 21: return selectedPlan !== null;
-      case 22: return avatarUrl.length > 0;
-      case 23: return true;
+      case 21: return verificationInput.length === 4 && !isVerifying;
+      case 22: return selectedPlan !== null;
+      case 23: return avatarUrl.length > 0;
+      case 24: return true;
       default: return true;
     }
-  }, [step, parentType, youAreNotAloneResponse, parentIdentityWord, dailyPainPoints, emotionalTrigger, guiltReflection, fixOneThing, childWorry, parentFirstName, howToRemember, parentFear, hopeChange, commitment, parentStrength, childrenCount, childDrafts, parentEmail, pin, confirmPin, selectedPlan, avatarUrl]);
+  }, [step, parentType, youAreNotAloneResponse, parentIdentityWord, dailyPainPoints, emotionalTrigger, guiltReflection, fixOneThing, childWorry, parentFirstName, howToRemember, parentFear, hopeChange, commitment, parentStrength, childrenCount, childDrafts, parentEmail, pin, confirmPin, verificationInput, isVerifying, selectedPlan, avatarUrl]);
 
   // Handle parent type selection (auto-advances)
   const handleParentTypeSelect = (type: ParentType) => {
@@ -417,8 +447,34 @@ export default function OnboardingScreen() {
     setPinError(null);
   };
 
+  const createVerificationCode = () => String(Math.floor(1000 + Math.random() * 9000));
+
+  const sendVerificationCode = async (): Promise<boolean> => {
+    const fullName = `${parentFirstName} ${parentLastName}`.trim() || parentEmail.split("@")[0];
+    const code = createVerificationCode();
+    setEmailVerificationCode(code);
+    setEmailVerificationSentAt(new Date().toISOString());
+    setVerificationError(null);
+
+    const result = await sendEmailVerificationCode(
+      { email: parentEmail, name: fullName },
+      { parentName: fullName, code }
+    );
+
+    if (!result.success) {
+      setVerificationError(result.error || "Failed to send verification code");
+      return false;
+    }
+    setResendCountdown(30);
+    return true;
+  };
+
+  // State for account creation
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+
   // Handle continue
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!canProceed) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -427,39 +483,173 @@ export default function OnboardingScreen() {
       setParentPin(pin);
     }
 
-    if (step === 19) {
-      setAccountCreated(true);
+    // Create Supabase account at step 20 (after email and PIN are set)
+    if (step === 20 && !accountCreated) {
+      setIsCreatingAccount(true);
+      setAccountError(null);
+      
+      try {
+        const fullName = `${parentFirstName} ${parentLastName}`.trim() || parentEmail.split('@')[0];
+        
+        console.log('[Onboarding] Creating account for:', parentEmail);
+        
+        // Create the account in Supabase
+        const result = await signUp({
+          email: parentEmail,
+          password: pin, // Using PIN as password for simplicity
+          name: fullName,
+        });
+        
+        console.log('[Onboarding] SignUp result:', { success: result.success, error: result.error });
+        
+        if (!result.success) {
+          setAccountError(result.error || 'Failed to create account');
+          setIsCreatingAccount(false);
+          return; // Don't proceed if account creation failed
+        }
+        
+        // Account created successfully - send welcome email
+        setAccountCreated(true);
+        
+        // Send welcome email (don't block on this)
+        sendWelcomeEmail(
+          { email: parentEmail, name: fullName },
+          fullName
+        ).then((emailResult) => {
+          if (!emailResult.success) {
+            console.warn('Welcome email failed:', emailResult.error);
+          } else {
+            console.log('Welcome email sent successfully!');
+          }
+        }).catch((err) => {
+          console.warn('Welcome email error:', err);
+        });
+
+        // Send verification code email (block on this)
+        const verificationSent = await sendVerificationCode();
+        if (!verificationSent) {
+          setAccountError("We couldn't send your verification code. Please try again.");
+          setIsCreatingAccount(false);
+          return;
+        }
+        setEmailVerified(false);
+        setVerificationInput("");
+        
+      } catch (error) {
+        setAccountError(error instanceof Error ? error.message : 'An unexpected error occurred');
+        setIsCreatingAccount(false);
+        return;
+      }
+      
+      setIsCreatingAccount(false);
     }
 
     if (step === 21) {
-      setPaymentComplete(true);
+      setIsVerifying(true);
+      setVerificationError(null);
+
+      const sentAt = emailVerificationSentAt ? new Date(emailVerificationSentAt).getTime() : 0;
+      const isExpired = Date.now() - sentAt > 10 * 60 * 1000;
+
+      if (isExpired) {
+        setVerificationError("That code expired. Tap resend to get a new one.");
+        setIsVerifying(false);
+        return;
+      }
+
+      if (verificationInput !== emailVerificationCode) {
+        setVerificationError("That code doesn't match. Please try again.");
+        setIsVerifying(false);
+        return;
+      }
+
+      setEmailVerified(true);
+      setIsVerifying(false);
+      nextStep();
+      return;
     }
 
     if (step === 22) {
+      setPaymentComplete(true);
+    }
+
+    if (step === 23) {
       setAvatarSetupComplete(true);
     }
 
-    // Final step
-    if (step === 23) {
+    // Final step - Save data locally AND sync to cloud
+    if (step === 24) {
       const fullName = `${parentFirstName} ${parentLastName}`.trim();
       const mapRole = (pt: ParentType | null) => pt === "father" || pt === "mother" ? "other" : "other";
       
+      // Update local profile store
       updateProfile({
         name: fullName || undefined,
         email: parentEmail || undefined,
         avatarUrl: avatarUrl || undefined,
         gender: parentType === "father" ? "male" as Gender : parentType === "mother" ? "female" as Gender : undefined,
         role: mapRole(parentType) as "other",
+        plan: selectedPlan === "forge" ? "forge" : selectedPlan === "pro" ? "pro" : "free",
       });
 
+      // Get the current user ID for syncing
+      const currentUser = await getCurrentUser();
+      const parentId = currentUser?.id || `local-${Date.now()}`;
+
+      // Sync parent profile to cloud (background)
+      const parentData: ParentData = {
+        id: parentId,
+        email: parentEmail,
+        name: fullName,
+        subscription_tier: selectedPlan === "forge" || selectedPlan === "pro" ? "premium" : "free",
+        plan_code: selectedPlan || "free",
+        avatar_url: avatarUrl || undefined,
+        onboarding_data: {
+          parentType,
+          dailyPainPoints,
+          emotionalTrigger,
+          parentStrength,
+          hopeChange,
+          commitment,
+          howToRemember,
+        },
+      };
+      syncParentToCloud(parentData).catch((err) => {
+        console.warn("Parent sync failed (will retry):", err);
+      });
+
+      // Add children locally AND sync to cloud
       childDrafts.forEach((child) => {
         if (child.firstName.trim()) {
           const dob = new Date(child.dateOfBirth || Date.now());
           const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+          
+          // Generate a unique ID for this child
+          const childLocalId = createUuid();
+          
+          // Add to local store
           addChild({
+            id: childLocalId,
             name: child.firstName.trim(),
             age: Math.max(1, age),
             className: child.academicClass ? ACADEMIC_CLASS_LABELS[child.academicClass] : undefined,
+          });
+
+          // Sync to cloud (background)
+          const childData: ChildData = {
+            id: childLocalId,
+            parent_id: parentId,
+            name: child.firstName.trim(),
+            age: Math.max(1, age),
+            points: 0,
+            class: child.academicClass ? ACADEMIC_CLASS_LABELS[child.academicClass] : null,
+            birthday: child.dateOfBirth || null,
+            interests: null,
+            learning_style: null,
+            special_needs: null,
+          };
+          syncChildToCloud(childData).catch((err) => {
+            console.warn("Child sync failed (will retry):", err);
           });
         }
       });
@@ -1624,12 +1814,101 @@ export default function OnboardingScreen() {
           {pinError && (
             <Text style={{ fontSize: 14, color: "#EF4444", textAlign: "center", marginTop: 16 }}>{pinError}</Text>
           )}
+
+          {accountError && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, backgroundColor: "rgba(239, 68, 68, 0.1)", padding: 12, borderRadius: 12 }}>
+              <AlertCircle size={18} color="#EF4444" />
+              <Text style={{ fontSize: 14, color: "#EF4444", flex: 1 }}>{accountError}</Text>
+            </View>
+          )}
+
+          {isCreatingAccount && (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 16 }}>
+              <ActivityIndicator size="small" color="#10B981" />
+              <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>Creating your account...</Text>
+            </View>
+          )}
         </Animated.View>
       );
     }
 
-    // STEP 21: Paywall
+    // STEP 21: Email Verification Code
     if (step === 21) {
+      const canResend = resendCountdown === 0;
+
+      return (
+        <Animated.View entering={FadeIn.duration(500)} style={{ paddingHorizontal: 20 }}>
+          <View style={{ alignItems: "center", marginBottom: 18 }}>
+            <Text style={{ fontSize: 26, fontWeight: "700", color: "#fff", textAlign: "center" }}>
+              Check your email
+            </Text>
+            <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginTop: 8, textAlign: "center" }}>
+              We sent a 4-digit code to {parentEmail}
+            </Text>
+          </View>
+
+          <View style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 18, padding: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" }}>
+            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
+              Enter code
+            </Text>
+            <TextInput
+              value={verificationInput}
+              onChangeText={(value) => {
+                const sanitized = value.replace(/[^0-9]/g, "").slice(0, 4);
+                setVerificationInput(sanitized);
+                setVerificationError(null);
+              }}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholder="0000"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              style={{
+                backgroundColor: "rgba(255,255,255,0.06)",
+                borderRadius: 14,
+                paddingVertical: 14,
+                textAlign: "center",
+                color: "#fff",
+                fontSize: 24,
+                fontWeight: "800",
+                letterSpacing: 6,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.1)",
+              }}
+            />
+
+            {verificationError && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, backgroundColor: "rgba(239, 68, 68, 0.1)", padding: 10, borderRadius: 12 }}>
+                <AlertCircle size={16} color="#EF4444" />
+                <Text style={{ fontSize: 13, color: "#EF4444", flex: 1 }}>{verificationError}</Text>
+              </View>
+            )}
+
+            <Pressable
+              onPress={() => {
+                if (!canResend) return;
+                sendVerificationCode();
+              }}
+              disabled={!canResend}
+              style={{ marginTop: 14, alignItems: "center", opacity: canResend ? 1 : 0.6 }}
+            >
+              <Text style={{ fontSize: 13, color: canResend ? parentTheme.primary : "rgba(255,255,255,0.4)" }}>
+                {canResend ? "Resend code" : `Resend in ${resendCountdown}s`}
+              </Text>
+            </Pressable>
+          </View>
+
+          {isVerifying && (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 16 }}>
+              <ActivityIndicator size="small" color="#10B981" />
+              <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>Verifying code...</Text>
+            </View>
+          )}
+        </Animated.View>
+      );
+    }
+
+    // STEP 22: Paywall
+    if (step === 22) {
       const getPrice = (plan: "free" | "pro" | "forge", cycle: "monthly" | "yearly") => {
         const basePrice = planPrices[plan][cycle];
         return formatPrice(basePrice, currencyType);
@@ -1791,8 +2070,8 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 22: Avatar Setup
-    if (step === 22) {
+    // STEP 23: Avatar Setup
+    if (step === 23) {
       return (
         <Animated.View entering={FadeIn.duration(500)} style={{ paddingHorizontal: 20 }}>
           <View style={{ alignItems: "center", marginBottom: 32 }}>
@@ -1828,8 +2107,8 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 23: Final/Ready
-    if (step === 23) {
+    // STEP 24: Final/Ready
+    if (step === 24) {
       return (
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24 }}>
           <Animated.View entering={ZoomIn.duration(500)} style={{ alignItems: "center" }}>
@@ -1869,13 +2148,13 @@ export default function OnboardingScreen() {
   };
 
   // Show back button
-  const showBackButton = step > 0 && step !== 17 && step !== 22 && step < 23;
+  const showBackButton = step > 0 && step !== 17 && step !== 23 && step < 24;
   // Show continue button
   const showContinueButton = step !== 0 && step !== 17;
   // Get continue label
   const getContinueLabel = () => {
-    if (step === 21) return `Continue with ${selectedPlan === "free" ? "Free" : selectedPlan === "pro" ? "Pro" : "Forge"}`;
-    if (step === 23) return "Go to Dashboard";
+    if (step === 22) return `Continue with ${selectedPlan === "free" ? "Free" : selectedPlan === "pro" ? "Pro" : "Forge"}`;
+    if (step === 24) return "Go to Dashboard";
     return "Continue";
   };
 
@@ -1913,7 +2192,7 @@ export default function OnboardingScreen() {
             {/* Content */}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingTop: step === 0 || step === 16 || step === 17 || step === 23 ? 0 : 32, paddingBottom: 32, flexGrow: step === 0 || step === 16 || step === 17 || step === 23 ? 1 : undefined }}
+                contentContainerStyle={{ paddingTop: step === 0 || step === 16 || step === 17 || step === 24 ? 0 : 32, paddingBottom: 32, flexGrow: step === 0 || step === 16 || step === 17 || step === 24 ? 1 : undefined }}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
@@ -1925,16 +2204,20 @@ export default function OnboardingScreen() {
                 <View style={{ paddingHorizontal: 20, paddingBottom: 24 }}>
                 <Pressable
                   onPress={handleContinue}
-                  disabled={!canProceed}
+                  disabled={!canProceed || isCreatingAccount}
                   style={{
-                    backgroundColor: canProceed ? parentTheme.primary : "rgba(255,255,255,0.1)",
+                    backgroundColor: (canProceed && !isCreatingAccount) ? parentTheme.primary : "rgba(255,255,255,0.1)",
                     borderRadius: 16,
                     paddingVertical: 18,
                     alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    gap: 8,
                   }}
                 >
-                  <Text style={{ fontSize: 17, fontWeight: "700", color: canProceed ? "#000" : "rgba(255,255,255,0.3)" }}>
-                    {getContinueLabel()}
+                  {isCreatingAccount && <ActivityIndicator size="small" color="#000" />}
+                  <Text style={{ fontSize: 17, fontWeight: "700", color: (canProceed && !isCreatingAccount) ? "#000" : "rgba(255,255,255,0.3)" }}>
+                    {isCreatingAccount ? "Creating Account..." : getContinueLabel()}
                   </Text>
                 </Pressable>
               </View>

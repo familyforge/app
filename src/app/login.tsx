@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuth } from '../lib/api';
+import { useOnboardingStore } from '../lib/state/onboarding-store';
 import { theme } from '../lib/theme';
 
 const colors = {
@@ -39,6 +40,7 @@ const colors = {
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, isLoading } = useAuth();
+  const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState(['', '', '', '', '', '']);
@@ -108,6 +110,7 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
+    resetOnboarding();
     router.push('/onboarding');
   };
 

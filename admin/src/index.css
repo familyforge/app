@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 :root {
-  /* Dark Mode (default) - per README.md design system */
   --background: #1a1a1f;
   --card: #252529;
   --primary: #5b9a8b;
@@ -16,8 +15,46 @@ body {
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   background-color: var(--background);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background-color: rgba(139, 92, 246, 0.3);
+  color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 120, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 120, 0.5);
+}
+
+/* Smooth transitions on interactive elements */
+button, a, select, input {
+  transition: all 0.15s ease;
+}
+
+/* Remove default number input spinners for cleaner look */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }

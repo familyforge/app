@@ -178,6 +178,7 @@ type AdminPage =
 
 type AdminRole = "superadmin" | "admin";
 type AdminUser = {
+  id?: string;
   email: string;
   role: AdminRole;
   passwordHash?: string;
@@ -193,8 +194,6 @@ const SUPER_ADMIN_EMAILS_RAW = (import.meta as { env?: Record<string, string> })
   ?? ADMIN_EMAILS_RAW
   ?? "";
 const SUPER_ADMIN_EMAILS = SUPER_ADMIN_EMAILS_RAW.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
-const ADMIN_PASSWORD_HASH = (import.meta as { env?: Record<string, string> }).env?.VITE_ADMIN_PASSWORD_HASH ?? "";
-const ADMIN_AUTH_KEY = "familyforge_admin_auth";
 const ADMIN_USERS_KEY = "familyforge_admin_users";
 const SUPPORT_TICKETS_KEY = "familyforge_support_tickets";
 const APP_SETTINGS_KEY = "familyforge_app_settings";
@@ -337,12 +336,6 @@ const hashText = async (value: string) => {
     .join("");
 };
 
-type AdminAuthState = {
-  email: string;
-  role: AdminRole;
-  authenticatedAt: number;
-};
-
 const loadAdminUsers = (): AdminUser[] => {
   try {
     const raw = localStorage.getItem(ADMIN_USERS_KEY);
@@ -362,17 +355,41 @@ const fetchAdminUsersFromDb = async (): Promise<AdminUser[]> => {
   if (!isSupabaseConfigured()) return [];
   const { data, error } = await supabase
     .from("admin_users")
-    .select("email, role, password_hash, created_at, allowed_pages");
+    .select("id, email, role, password_hash, created_at, allowed_pages");
   if (error || !data) {
     return [];
   }
   return data.map((row) => ({
+    id: row.id,
     email: row.email,
     role: (row.role === "superadmin" ? "superadmin" : "admin") as AdminRole,
     passwordHash: row.password_hash,
     createdAt: row.created_at,
     allowedPages: row.allowed_pages as AdminPage[] | undefined,
   }));
+};
+
+type SupabaseUserRef = { id: string; email?: string | null };
+
+const fetchAdminProfile = async (user: SupabaseUserRef): Promise<AdminUser | null> => {
+  if (!isSupabaseConfigured()) return null;
+  const normalizedEmail = user.email?.toLowerCase() ?? "";
+  const emailFilter = normalizedEmail ? `,email.eq.${normalizedEmail}` : "";
+  const { data, error } = await supabase
+    .from("admin_users")
+    .select("id, email, role, created_at, allowed_pages")
+    .or(`id.eq.${user.id}${emailFilter}`)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    email: data.email,
+    role: data.role === "superadmin" ? "superadmin" : "admin",
+    createdAt: data.created_at,
+    allowedPages: data.allowed_pages as AdminPage[] | undefined,
+  };
 };
 
 type SupportTicket = {
@@ -407,61 +424,35 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
 
   const handleLogin = async () => {
     setError("");
-    const storedAdmins = loadAdminUsers();
-    if (!window.crypto?.subtle) {
-      setError("Secure login is not available in this browser.");
+    if (!isSupabaseConfigured()) {
+      setError("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
       return;
     }
-    setLoading(true);
-    const hashed = await hashText(password.trim());
+
     const normalizedEmail = email.trim().toLowerCase();
-    const storedAdmin = storedAdmins.find((admin) => admin.email === normalizedEmail);
+    setLoading(true);
 
-    let dbAdmin: { email: string; role: AdminRole; passwordHash: string } | null = null;
-    if (isSupabaseConfigured()) {
-      const { data } = await supabase
-        .from("admin_users")
-        .select("email, role, password_hash")
-        .eq("email", normalizedEmail)
-        .maybeSingle();
-      if (data) {
-        dbAdmin = {
-          email: data.email,
-          role: data.role === "superadmin" ? "superadmin" : "admin",
-          passwordHash: data.password_hash,
-        };
-      }
-    }
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password: password,
+    });
 
-    const isAllowed =
-      SUPER_ADMIN_EMAILS.includes(normalizedEmail) ||
-      ADMIN_EMAILS.includes(normalizedEmail) ||
-      Boolean(storedAdmin) ||
-      Boolean(dbAdmin);
-
-    const passwordMatches =
-      (dbAdmin && hashed === dbAdmin.passwordHash) ||
-      (storedAdmin?.passwordHash && hashed === storedAdmin.passwordHash) ||
-      (hashed === ADMIN_PASSWORD_HASH);
-
-    if (!isAllowed || !passwordMatches) {
+    if (signInError || !data?.user) {
       setLoading(false);
-      setError("Incorrect email or password.");
+      setError(signInError?.message || "Incorrect email or password.");
       return;
     }
 
-    const role: AdminRole = SUPER_ADMIN_EMAILS.includes(normalizedEmail)
-      ? "superadmin"
-      : dbAdmin?.role ?? storedAdmin?.role ?? "admin";
+    const adminProfile = await fetchAdminProfile(data.user);
+    if (!adminProfile) {
+      await supabase.auth.signOut();
+      setLoading(false);
+      setError("Access denied. Admin privileges required.");
+      return;
+    }
 
-    const payload: AdminAuthState = {
-      email: normalizedEmail,
-      role,
-      authenticatedAt: Date.now(),
-    };
-    localStorage.setItem(ADMIN_AUTH_KEY, JSON.stringify(payload));
     setLoading(false);
-    onSuccess(role, normalizedEmail);
+    onSuccess(adminProfile.role, adminProfile.email.toLowerCase());
   };
 
   return (
@@ -529,10 +520,11 @@ export default function App() {
   const stats = useAdminStore((s) => s.stats);
 
   const handleLogout = () => {
-    localStorage.removeItem(ADMIN_AUTH_KEY);
-    setAuthenticated(false);
-    setRole("admin");
-    setCurrentEmail("");
+    supabase.auth.signOut().finally(() => {
+      setAuthenticated(false);
+      setRole("admin");
+      setCurrentEmail("");
+    });
   };
 
   const baseNavItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard; group: string }[] = [
@@ -631,42 +623,83 @@ export default function App() {
   };
 
   useEffect(() => {
-    const localAdmins = loadAdminUsers();
-    setAdminUsers(localAdmins);
-    fetchAdminUsersFromDb().then((dbAdmins) => {
-      if (dbAdmins.length === 0) return;
-      const merged = [...localAdmins];
-      dbAdmins.forEach((dbAdmin) => {
-        if (!merged.find((admin) => admin.email === dbAdmin.email)) {
-          merged.push(dbAdmin);
+    let isActive = true;
+    const initAuth = async () => {
+      const localAdmins = loadAdminUsers();
+      setAdminUsers(localAdmins);
+
+      if (!isSupabaseConfigured()) {
+        setAuthChecked(true);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!isActive) return;
+
+      if (session?.user) {
+        const adminProfile = await fetchAdminProfile(session.user);
+        if (adminProfile) {
+          setAuthenticated(true);
+          setRole(adminProfile.role);
+          setCurrentEmail(adminProfile.email.toLowerCase());
+        } else {
+          await supabase.auth.signOut();
+          setAuthenticated(false);
+          setRole("admin");
+          setCurrentEmail("");
         }
-      });
-      setAdminUsers(merged);
-    });
-    const raw = localStorage.getItem(ADMIN_AUTH_KEY);
-    if (!raw) {
+      }
+
       setAuthChecked(true);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw) as AdminAuthState;
-      const normalizedEmail = parsed.email?.toLowerCase() ?? "";
-      const storedAdmins = loadAdminUsers();
-      const storedAdmin = storedAdmins.find((admin) => admin.email === normalizedEmail);
-      const isValid =
-        SUPER_ADMIN_EMAILS.includes(normalizedEmail) ||
-        ADMIN_EMAILS.includes(normalizedEmail) ||
-        Boolean(storedAdmin);
-      setAuthenticated(isValid);
-      setRole(parsed.role ?? (SUPER_ADMIN_EMAILS.includes(normalizedEmail) ? "superadmin" : storedAdmin?.role ?? "admin"));
-      setCurrentEmail(normalizedEmail);
-    } catch {
-      setAuthenticated(false);
-      setRole("admin");
-      setCurrentEmail("");
-    }
-    setAuthChecked(true);
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isActive) return;
+      if (session?.user) {
+        const adminProfile = await fetchAdminProfile(session.user);
+        if (adminProfile) {
+          setAuthenticated(true);
+          setRole(adminProfile.role);
+          setCurrentEmail(adminProfile.email.toLowerCase());
+        } else {
+          await supabase.auth.signOut();
+          setAuthenticated(false);
+          setRole("admin");
+          setCurrentEmail("");
+        }
+      } else {
+        setAuthenticated(false);
+        setRole("admin");
+        setCurrentEmail("");
+      }
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    const hydrateAdmins = async () => {
+      if (!authenticated || !isSupabaseConfigured()) return;
+      const dbAdmins = await fetchAdminUsersFromDb();
+      if (dbAdmins.length === 0) return;
+      setAdminUsers((prev) => {
+        const merged = [...prev];
+        dbAdmins.forEach((dbAdmin) => {
+          if (!merged.find((admin) => admin.email === dbAdmin.email)) {
+            merged.push(dbAdmin);
+          }
+        });
+        return merged;
+      });
+    };
+
+    hydrateAdmins();
+  }, [authenticated]);
 
   useEffect(() => {
     const fetchAdminData = async () => {

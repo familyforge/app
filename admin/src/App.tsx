@@ -571,46 +571,46 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <img src={logo} alt="FamilyForge" className="h-12 w-12 rounded-2xl object-cover" />
+      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-10 shadow-2xl">
+        <div className="flex items-center gap-4 mb-8">
+          <img src={logo} alt="FamilyForge" className="h-16 w-16 rounded-2xl object-cover" />
           <div>
-            <h1 className="text-xl font-semibold text-white">FamilyForge Admin</h1>
-            <p className="text-slate-500 text-sm">Secure access</p>
+            <h1 className="text-3xl font-semibold text-white">FamilyForge Admin</h1>
+            <p className="text-slate-500 text-base">Secure access</p>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <label className="text-slate-400 text-sm">Email</label>
+            <label className="text-slate-400 text-base">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white focus:outline-none focus:border-violet-500"
+              className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-lg text-white focus:outline-none focus:border-violet-500"
               placeholder="email@example.com"
             />
           </div>
           <div>
-            <label className="text-slate-400 text-sm">Password</label>
+            <label className="text-slate-400 text-base">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white focus:outline-none focus:border-violet-500"
+              className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-lg text-white focus:outline-none focus:border-violet-500"
               placeholder="••••••••"
             />
           </div>
 
-          {error ? <p className="text-red-400 text-sm">{error}</p> : null}
-          <p className="text-slate-500 text-xs">
+          {error ? <p className="text-red-400 text-base">{error}</p> : null}
+          <p className="text-slate-500 text-sm">
             Use your Supabase Auth email and password.
           </p>
 
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full rounded-2xl bg-violet-500 py-3 font-semibold text-white transition hover:bg-violet-600 disabled:opacity-60"
+            className="w-full rounded-2xl bg-violet-500 py-4 text-lg font-semibold text-white transition hover:bg-violet-600 disabled:opacity-60"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>

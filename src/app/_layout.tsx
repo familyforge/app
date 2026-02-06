@@ -4,8 +4,15 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
+
+// KeyboardProvider crashes on web — only import on native
+let KeyboardProvider: React.ComponentType<{ children: React.ReactNode }> | null = null;
+if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  KeyboardProvider = require("react-native-keyboard-controller").KeyboardProvider;
+}
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -226,9 +233,13 @@ export default function RootLayout() {
         <SyncProvider syncInterval={30000} syncOnReconnect={true}>
           <SafeAreaProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
+              {KeyboardProvider ? (
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              ) : (
                 <RootLayoutNav />
-              </KeyboardProvider>
+              )}
             </GestureHandlerRootView>
           </SafeAreaProvider>
         </SyncProvider>

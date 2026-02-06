@@ -103,14 +103,16 @@ const cancelNotificationsByPrefix = async (prefix: string): Promise<void> => {
 };
 
 // Configure how notifications appear when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 // Request notification permissions
 export async function requestNotificationPermissions(): Promise<boolean> {
@@ -434,6 +436,7 @@ export async function scheduleAllNotifications(params: {
   learningTasks: LearningTask[];
   notifications: NotificationSettings;
 }): Promise<void> {
+  if (Platform.OS === 'web') return;
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 

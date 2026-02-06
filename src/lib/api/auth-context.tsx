@@ -2,6 +2,7 @@
 // React hooks for authentication state management
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import {
   signUp as apiSignUp,
   signIn as apiSignIn,
@@ -16,6 +17,7 @@ import {
   type SignUpData,
   type SignInData,
 } from './auth';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -61,6 +63,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return unsubscribe;
   }, []);
+
+  // Presence heartbeat — updates last_seen_at every 60s while app is in foreground
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured()) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        await supabase
+          .from('parents')
+          .update({ last_seen_at: new Date().toISOString() } as never)
+          .eq('id', user.id);
+      } catch {
+        // silently ignore heartbeat failures
+      }
+    };
+
+    // Send immediately on mount / sign-in
+    sendHeartbeat();
+
+    // Then every 60 seconds
+    const interval = setInterval(sendHeartbeat, 60_000);
+
+    // Also send when app comes back to foreground
+    const handleAppState = (state: AppStateStatus) => {
+      if (state === 'active') sendHeartbeat();
+    };
+    const sub = AppState.addEventListener('change', handleAppState);
+
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [user]);
 
   const signUp = useCallback(async (data: SignUpData) => {
     setIsLoading(true);

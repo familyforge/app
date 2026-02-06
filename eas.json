@@ -1,0 +1,19 @@
+{
+  "build": {
+    "production": {
+      "ios": {
+        "autoIncrement": true
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "node": "22.0.0",
+      "cache": {
+        "disabled": true
+      }
+    }
+  },
+  "cli": {
+    "appVersionSource": "remote"
+  }
+}

@@ -123,7 +123,7 @@ export async function signUp(data: SignUpData): Promise<AuthResult> {
       notifications: true,
       reminders: true,
       points_to_money_rate: 0.01,
-      currency: 'USD',
+      currency: 'GBP',
     };
     
     await supabase

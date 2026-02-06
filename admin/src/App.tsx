@@ -459,27 +459,52 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
     const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password: password,
-    });
+    const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeout = new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), ms);
+      });
+      try {
+        return await Promise.race([promise, timeout]);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    };
 
-    if (signInError || !data?.user) {
+    try {
+      const { data, error: signInError } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: password,
+        }),
+        12000,
+        "Sign-in timed out. Please try again."
+      );
+
+      if (signInError || !data?.user) {
+        setError(signInError?.message || "Incorrect email or password.");
+        return;
+      }
+
+      const adminProfile = await withTimeout(
+        fetchAdminProfile(data.user),
+        12000,
+        "Admin lookup timed out. Please try again."
+      );
+
+      if (!adminProfile) {
+        await supabase.auth.signOut();
+        setError("Access denied. Admin privileges required. Check admin_users access in Supabase.");
+        return;
+      }
+
+      onSuccess(adminProfile.role, adminProfile.email.toLowerCase());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Sign-in failed. Please try again.";
+      setError(message);
+    } finally {
       setLoading(false);
-      setError(signInError?.message || "Incorrect email or password.");
-      return;
     }
-
-    const adminProfile = await fetchAdminProfile(data.user);
-    if (!adminProfile) {
-      await supabase.auth.signOut();
-      setLoading(false);
-      setError("Access denied. Admin privileges required. Check admin_users access in Supabase.");
-      return;
-    }
-
-    setLoading(false);
-    onSuccess(adminProfile.role, adminProfile.email.toLowerCase());
   };
 
   return (

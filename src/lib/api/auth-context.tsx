@@ -18,6 +18,7 @@ import {
   type SignInData,
 } from './auth';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { useAppStore } from '../state/app-store';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -64,16 +65,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  // Track which child is currently active (for child presence)
+  const isChildMode = useAppStore((s) => s.isChildMode);
+  const selectedChildId = useAppStore((s) => s.selectedChildId);
+
   // Presence heartbeat — updates last_seen_at every 60s while app is in foreground
   useEffect(() => {
     if (!user || !isSupabaseConfigured()) return;
 
     const sendHeartbeat = async () => {
       try {
+        const now = new Date().toISOString();
+        // Always update parent heartbeat
         await supabase
           .from('parents')
-          .update({ last_seen_at: new Date().toISOString() } as never)
+          .update({ last_seen_at: now } as never)
           .eq('id', user.id);
+
+        // Also update selected child's heartbeat when in child mode
+        if (isChildMode && selectedChildId) {
+          await supabase
+            .from('children')
+            .update({ last_seen_at: now } as never)
+            .eq('id', selectedChildId);
+        }
       } catch {
         // silently ignore heartbeat failures
       }
@@ -95,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearInterval(interval);
       sub.remove();
     };
-  }, [user]);
+  }, [user, isChildMode, selectedChildId]);
 
   const signUp = useCallback(async (data: SignUpData) => {
     setIsLoading(true);

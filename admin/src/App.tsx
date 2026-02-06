@@ -2,8 +2,131 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { EmailSystemEnhanced } from "./lib/email";
+import {
+  OverviewDashboardPage,
+  UserManagementPage,
+  OnboardingAnalyticsPage,
+  SubscriptionAnalyticsPage,
+  AppHealthPage,
+  EngagementAnalyticsPage,
+} from "./lib/pages";
+import { AuditLogPage, DataExportTool } from "./lib/workflows";
 import {
   LayoutDashboard,
+  Users,
+  UserRound,
+  CheckSquare,
+  Gift,
+  BookOpen,
+  MessageCircle,
+  Wallet,
+  BarChart3,
+  Sparkles,
+  LifeBuoy,
+  Download,
+  ShieldCheck,
+  Zap,
+  Star,
+  Plus,
+  Mail,
+  Clock,
+  Send,
+  Check,
+  Eye,
+  Copy,
+  X,
+  Activity,
+  Target,
+  Smartphone,
+  TrendingUp,
+  History,
+} from "lucide-react";
+
+// Logo (using Unsplash family forge brand image)
+const logo = "https://images.unsplash.com/photo-1607453998774-d533f65dac99?w=128&h=128&fit=crop";
+
+// Types
+type Parent = {
+  id: string;
+  name: string;
+  email: string;
+  subscriptionTier: string | null;
+  planCode: string;
+  childrenCount: number;
+  createdAt: string;
+};
+
+type Child = {
+  id: string;
+  parentId: string;
+  parentName: string;
+  name: string;
+  age: number;
+  points: number;
+  tasksCompleted: number;
+  createdAt: string;
+};
+
+type Task = {
+  id: string;
+  title: string;
+  category: string;
+  points: number;
+  assignedTo: string;
+  status: "pending" | "completed";
+};
+
+type Reward = {
+  id: string;
+  title: string;
+  pointsCost: number;
+  timesRedeemed: number;
+};
+
+type Testimonial = {
+  id: string;
+  name: string;
+  text: string;
+  imageUrl: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+type Stats = {
+  totalParents: number;
+  totalChildren: number;
+  totalTasksCompleted: number;
+  totalPointsEarned: number;
+  totalRewardsRedeemed: number;
+};
+
+type AdminStoreState = {
+  parents: Parent[];
+  children: Child[];
+  tasks: Task[];
+  rewards: Reward[];
+  testimonials: Testimonial[];
+  stats: Stats;
+  setParents: (parents: Parent[]) => void;
+  setChildren: (children: Child[]) => void;
+  setStats: (stats: Stats) => void;
+  addTestimonial: (testimonial: Omit<Testimonial, "id" | "createdAt">) => void;
+  updateTestimonial: (id: string, updates: Partial<Testimonial>) => void;
+  deleteTestimonial: (id: string) => void;
+  toggleTestimonialActive: (id: string) => void;
+};
+
+const useAdminStore = create<AdminStoreState>((set) => ({
+  parents: [],
+  children: [],
+  tasks: [],
+  rewards: [],
+  testimonials: [],
+  stats: {
+    totalParents: 0,
+    totalChildren: 0,
+    totalTasksCompleted: 0,
     totalPointsEarned: 0,
     totalRewardsRedeemed: 0,
   },
@@ -16,6 +139,8 @@ import {
         ...state.testimonials,
         { ...testimonial, id: Date.now().toString(), createdAt: new Date().toISOString().split("T")[0] },
       ],
+    })),
+  updateTestimonial: (id, updates) =>
     set((state) => ({
       testimonials: state.testimonials.map((t) => (t.id === id ? { ...t, ...updates } : t)),
     })),
@@ -31,6 +156,13 @@ import {
 
 type AdminPage =
   | "dashboard"
+  | "analytics-overview"
+  | "users"
+  | "onboarding"
+  | "subscriptions-analytics"
+  | "app-health"
+  | "engagement"
+  | "audit-log"
   | "parents"
   | "children"
   | "tasks"
@@ -70,14 +202,101 @@ const LEARNING_BATCHES_KEY = "familyforge_learning_batches";
 
 type AppPlanPrices = {
   free: { monthly: number; yearly: number };
+  forge: { monthly: number; yearly: number };
+  pro: { monthly: number; yearly: number };
+};
+
+type AppPricingConfig = {
+  planPrices: AppPlanPrices;
+  mostPopularPlanId: "forge" | "pro";
+  trialOffer: {
+    enabled: boolean;
+    label: string;
+    firstMonthPrice: number;
+    durationDays: number;
+    targetPlanId: "forge" | "pro";
+  };
+};
+
+const DEFAULT_PLAN_PRICES: AppPlanPrices = {
+  free: { monthly: 0, yearly: 0 },
+  forge: { monthly: 9.99, yearly: 99 },
+  pro: { monthly: 19.99, yearly: 199 },
+};
+
+const DEFAULT_PRICING_CONFIG: AppPricingConfig = {
+  planPrices: DEFAULT_PLAN_PRICES,
+  mostPopularPlanId: "forge",
+  trialOffer: {
+    enabled: true,
+    label: "Try Premium",
+    firstMonthPrice: 1,
+    durationDays: 30,
+    targetPlanId: "forge",
+  },
+};
+
+const normalizeNumber = (value: unknown, fallback: number): number => {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  const parsed = parseFloat(String(value));
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const normalizePlanPrices = (raw: unknown): AppPlanPrices => {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    free: {
+      monthly: normalizeNumber((obj.free as { monthly?: unknown })?.monthly, DEFAULT_PLAN_PRICES.free.monthly),
+      yearly: normalizeNumber((obj.free as { yearly?: unknown })?.yearly, DEFAULT_PLAN_PRICES.free.yearly),
+    },
+    forge: {
+      monthly: normalizeNumber((obj.forge as { monthly?: unknown })?.monthly, DEFAULT_PLAN_PRICES.forge.monthly),
+      yearly: normalizeNumber((obj.forge as { yearly?: unknown })?.yearly, DEFAULT_PLAN_PRICES.forge.yearly),
+    },
+    pro: {
+      monthly: normalizeNumber((obj.pro as { monthly?: unknown })?.monthly, DEFAULT_PLAN_PRICES.pro.monthly),
+      yearly: normalizeNumber((obj.pro as { yearly?: unknown })?.yearly, DEFAULT_PLAN_PRICES.pro.yearly),
+    },
+  };
+};
+
+const saveAppPricingConfig = (config: AppPricingConfig) => {
+  localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(config));
+};
+
+const fetchAppPricingConfig = async (): Promise<AppPricingConfig> => {
+  // Try localStorage first
+  try {
+    const raw = localStorage.getItem(APP_SETTINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as AppPricingConfig;
+      if (parsed?.planPrices) return parsed;
+    }
+  } catch {
+    // Continue to fetch from DB
+  }
+
+  // Fetch from DB
+  if (!isSupabaseConfigured()) return DEFAULT_PRICING_CONFIG;
+  const { data } = await supabase
+    .from("app_settings")
+    .select("plan_prices")
+    .eq("key", "subscription_prices")
+    .single();
+  
+  if (!data?.plan_prices) return DEFAULT_PRICING_CONFIG;
+  
+  const rawConfig = data.plan_prices as Record<string, unknown>;
+  const trialOfferRaw = rawConfig?.trialOffer as { enabled?: boolean; label?: string; firstMonthPrice?: unknown; durationDays?: unknown; targetPlanId?: string } | undefined;
+  const normalized: AppPricingConfig = {
     planPrices: normalizePlanPrices((rawConfig as { prices?: unknown })?.prices ?? rawConfig),
     mostPopularPlanId: rawConfig?.mostPopularPlanId === "pro" ? "pro" : "forge",
     trialOffer: {
-      enabled: Boolean(rawConfig?.trialOffer?.enabled),
-      label: rawConfig?.trialOffer?.label || DEFAULT_PRICING_CONFIG.trialOffer.label,
-      firstMonthPrice: normalizeNumber(rawConfig?.trialOffer?.firstMonthPrice, DEFAULT_PRICING_CONFIG.trialOffer.firstMonthPrice),
-      durationDays: normalizeNumber(rawConfig?.trialOffer?.durationDays, DEFAULT_PRICING_CONFIG.trialOffer.durationDays),
-      targetPlanId: rawConfig?.trialOffer?.targetPlanId === "pro" ? "pro" : "forge",
+      enabled: Boolean(trialOfferRaw?.enabled),
+      label: trialOfferRaw?.label || DEFAULT_PRICING_CONFIG.trialOffer.label,
+      firstMonthPrice: normalizeNumber(trialOfferRaw?.firstMonthPrice, DEFAULT_PRICING_CONFIG.trialOffer.firstMonthPrice),
+      durationDays: normalizeNumber(trialOfferRaw?.durationDays, DEFAULT_PRICING_CONFIG.trialOffer.durationDays),
+      targetPlanId: trialOfferRaw?.targetPlanId === "pro" ? "pro" : "forge",
     },
   };
   saveAppPricingConfig(normalized);
@@ -318,6 +537,13 @@ export default function App() {
 
   const baseNavItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard; group: string }[] = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview" },
+    { key: "analytics-overview", label: "Analytics Overview", icon: Activity, group: "Analytics" },
+    { key: "users", label: "User Management", icon: Users, group: "Analytics" },
+    { key: "onboarding", label: "Onboarding Funnel", icon: Target, group: "Analytics" },
+    { key: "subscriptions-analytics", label: "Subscription Intel", icon: TrendingUp, group: "Analytics" },
+    { key: "app-health", label: "App Health", icon: Smartphone, group: "Analytics" },
+    { key: "engagement", label: "Engagement", icon: Zap, group: "Analytics" },
+    { key: "audit-log", label: "Audit Log", icon: History, group: "Analytics" },
     { key: "parents", label: "Parents", icon: Users, group: "People" },
     { key: "children", label: "Children", icon: UserRound, group: "People" },
     { key: "tasks", label: "Tasks", icon: CheckSquare, group: "People" },
@@ -358,6 +584,20 @@ export default function App() {
     switch (currentPage) {
       case "dashboard":
         return <DashboardPage />;
+      case "analytics-overview":
+        return <OverviewDashboardPage />;
+      case "users":
+        return <UserManagementPage />;
+      case "onboarding":
+        return <OnboardingAnalyticsPage />;
+      case "subscriptions-analytics":
+        return <SubscriptionAnalyticsPage />;
+      case "app-health":
+        return <AppHealthPage />;
+      case "engagement":
+        return <EngagementAnalyticsPage />;
+      case "audit-log":
+        return <AuditLogPage />;
       case "parents":
         return <ParentsPage />;
       case "children":
@@ -2680,13 +2920,13 @@ function ReportsPage({ role }: { role: AdminRole }) {
   };
 
   const exportParents = () => {
-    const rows = [
+    const rows: string[][] = [
       ["id", "name", "email", "subscriptionTier", "childrenCount", "createdAt"],
       ...parents.map((parent) => [
         parent.id,
         parent.name,
         parent.email,
-        parent.subscriptionTier,
+        parent.subscriptionTier ?? "",
         String(parent.childrenCount),
         parent.createdAt,
       ]),
@@ -2695,7 +2935,7 @@ function ReportsPage({ role }: { role: AdminRole }) {
   };
 
   const exportChildren = () => {
-    const rows = [
+    const rows: string[][] = [
       ["id", "name", "parentName", "age", "points", "createdAt"],
       ...children.map((child) => [
         child.id,
@@ -2710,12 +2950,12 @@ function ReportsPage({ role }: { role: AdminRole }) {
   };
 
   const exportMarketingEmails = () => {
-    const rows = [
+    const rows: string[][] = [
       ["email", "name", "subscriptionTier", "childrenCount"],
       ...parents.map((parent) => [
         parent.email,
         parent.name,
-        parent.subscriptionTier,
+        parent.subscriptionTier ?? "",
         String(parent.childrenCount),
       ]),
     ];

@@ -251,7 +251,7 @@ function MobileDownloadPrompt({
 
         {/* Store Button */}
         <Pressable
-          onPress={() => Linking.openURL("#")}
+          onPress={() => router.push('/onboarding')}
           style={{
             backgroundColor: isIOS ? "#0066cc" : "#01875f",
             paddingHorizontal: 16,
@@ -900,7 +900,7 @@ export default function LandingPage() {
             }}
           >
             <Pressable
-              onPress={() => Linking.openURL("#")}
+              onPress={() => router.push('/onboarding')}
               style={{
                 backgroundColor: "#000000",
                 paddingVertical: 12,
@@ -924,7 +924,7 @@ export default function LandingPage() {
             </Pressable>
 
             <Pressable
-              onPress={() => Linking.openURL("#")}
+              onPress={() => router.push('/onboarding')}
               style={{
                 backgroundColor: "#000000",
                 paddingVertical: 12,

@@ -459,46 +459,108 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
     const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
 
-    const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const timeout = new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(message)), ms);
-      });
-      try {
-        return await Promise.race([promise, timeout]);
-      } finally {
-        if (timeoutId) clearTimeout(timeoutId);
-      }
-    };
-
     try {
-      const { data, error: signInError } = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password: password,
-        }),
-        12000,
-        "Sign-in timed out. Please try again."
-      );
-
-      if (signInError || !data?.user) {
-        setError(signInError?.message || "Incorrect email or password.");
-        return;
+      // Use direct REST API call instead of SDK (SDK hangs on some environments)
+      const url = import.meta.env.VITE_SUPABASE_URL || "";
+      const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+      if (!url || !key) {
+        throw new Error("Missing Supabase credentials in env.");
       }
 
-      const adminProfile = await withTimeout(
-        fetchAdminProfile(data.user),
-        12000,
-        "Admin lookup timed out. Please try again."
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      let accessToken = "";
+      let refreshToken = "";
+      let userId = "";
+
+      try {
+        const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: normalizedEmail, password }),
+          signal: controller.signal,
+        });
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          access_token?: string;
+          refresh_token?: string;
+          user?: { id: string; email?: string | null } | null;
+          error_description?: string;
+          msg?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error_description || payload.msg || `Auth failed (${response.status})`);
+        }
+
+        if (!payload.access_token || !payload.refresh_token || !payload.user) {
+          throw new Error("Auth response missing tokens or user info.");
+        }
+
+        accessToken = payload.access_token;
+        refreshToken = payload.refresh_token;
+        userId = payload.user.id;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      // Try to set session in Supabase client (for future SDK-based API calls)
+      // Wrap in a race with a 3-second timeout because the SDK can hang
+      try {
+        await Promise.race([
+          supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("setSession timeout")), 3000)),
+        ]);
+        console.log("[admin-auth] setSession succeeded");
+      } catch (e) {
+        console.warn("[admin-auth] setSession skipped (timeout or error):", e);
+        // Manually store tokens so future direct REST calls work
+        try {
+          const storageKey = `sb-${new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split(".")[0]}-auth-token`;
+          localStorage.setItem(storageKey, JSON.stringify({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            token_type: "bearer",
+            user: { id: userId, email: normalizedEmail },
+          }));
+        } catch { /* ignore storage errors */ }
+      }
+
+      // Verify admin access - use direct fetch with the access token
+      const profileRes = await fetch(
+        `${url}/rest/v1/admin_users?or=(id.eq.${userId},email.eq.${encodeURIComponent(normalizedEmail)})&limit=1`,
+        {
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
+
+      const profiles = (await profileRes.json().catch(() => [])) as Array<{
+        id: string;
+        email: string;
+        role: string;
+      }>;
+
+      const adminProfile = profiles?.[0];
 
       if (!adminProfile) {
-        await supabase.auth.signOut();
-        setError("Access denied. Admin privileges required. Check admin_users access in Supabase.");
+        setError("Access denied. Admin privileges required. Check admin_users table in Supabase.");
         return;
       }
 
-      onSuccess(adminProfile.role, adminProfile.email.toLowerCase());
+      const adminRole = (adminProfile.role === "superadmin" ? "superadmin" : "admin") as AdminRole;
+      onSuccess(adminRole, adminProfile.email.toLowerCase());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Sign-in failed. Please try again.";
       setError(message);
@@ -566,6 +628,11 @@ export default function App() {
   const [currentEmail, setCurrentEmail] = useState("");
   const [dataLoading, setDataLoading] = useState(false);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [authStatus, setAuthStatus] = useState("init");
+  const [authInitError, setAuthInitError] = useState("");
+  const [connectivityStatus, setConnectivityStatus] = useState("idle");
+  const [connectivityError, setConnectivityError] = useState("");
+  const [supabaseHost, setSupabaseHost] = useState("");
 
   const parents = useAdminStore((s) => s.parents);
   const children = useAdminStore((s) => s.children);
@@ -679,58 +746,45 @@ export default function App() {
 
   useEffect(() => {
     let isActive = true;
-    const initAuth = async () => {
-      const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const timeout = new Promise<T>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("Request timed out")), ms);
-        });
-        try {
-          return await Promise.race([promise, timeout]);
-        } finally {
-          if (timeoutId) clearTimeout(timeoutId);
-        }
-      };
 
+    // Clear any stale Supabase auth tokens from localStorage
+    // This prevents getSession() from hanging while trying to refresh expired tokens
+    const clearStaleAuth = () => {
       try {
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+            console.log("[admin-auth] Clearing stale auth token:", key);
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {
+        console.warn("[admin-auth] Could not clear localStorage:", e);
+      }
+    };
+
+    const initAuth = async () => {
+      try {
+        setAuthInitError("");
+        setAuthStatus("load-admins");
         const localAdmins = loadAdminUsers();
         setAdminUsers(localAdmins);
 
         if (!isSupabaseConfigured()) {
+          setAuthStatus("supabase-missing");
           return;
         }
 
-        const getSessionWithTimeout = () => {
-          const timeout = new Promise<{ data: { session: null } }>((resolve) => {
-            setTimeout(() => resolve({ data: { session: null } }), 8000);
-          });
-          return Promise.race([supabase.auth.getSession(), timeout]);
-        };
+        // Clear stale tokens so getSession() doesn't hang trying to refresh
+        clearStaleAuth();
 
-        let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
-        try {
-          const result = await getSessionWithTimeout();
-          session = result?.data?.session ?? null;
-        } catch (error) {
-          console.warn("Admin session check failed:", error);
-        }
-        if (!isActive) return;
-
-        if (session?.user) {
-          const adminProfile = await withTimeout(fetchAdminProfile(session.user), 8000);
-          if (adminProfile) {
-            setAuthenticated(true);
-            setRole(adminProfile.role);
-            setCurrentEmail(adminProfile.email.toLowerCase());
-          } else {
-            await supabase.auth.signOut();
-            setAuthenticated(false);
-            setRole("admin");
-            setCurrentEmail("");
-          }
-        }
+        // Skip getSession entirely - no existing session after clearing storage
+        // Just show login screen immediately
+        setAuthStatus("no-session");
       } catch (error) {
         console.warn("Admin auth init failed:", error);
+        setAuthInitError(error instanceof Error ? error.message : "Auth init failed");
+        setAuthStatus("init-error");
       } finally {
         if (isActive) setAuthChecked(true);
       }
@@ -738,31 +792,57 @@ export default function App() {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Listen for auth state changes (fires after successful login)
+    // NOTE: Don't do async work here — login is already handled in handleLogin
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isActive) return;
-      if (session?.user) {
-        const adminProfile = await fetchAdminProfile(session.user);
-        if (adminProfile) {
-          setAuthenticated(true);
-          setRole(adminProfile.role);
-          setCurrentEmail(adminProfile.email.toLowerCase());
-        } else {
-          await supabase.auth.signOut();
-          setAuthenticated(false);
-          setRole("admin");
-          setCurrentEmail("");
-        }
-      } else {
-        setAuthenticated(false);
-        setRole("admin");
-        setCurrentEmail("");
-      }
+      console.log("[admin-auth] onAuthStateChange:", _event, session?.user?.email);
+      // We handle login/logout state directly in handleLogin, so this is just a logger
     });
 
     return () => {
       isActive = false;
       subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const url = import.meta.env.VITE_SUPABASE_URL || "";
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+    if (!url || !key) {
+      setConnectivityStatus("missing-env");
+      return;
+    }
+
+    try {
+      const host = new URL(url).host;
+      setSupabaseHost(host);
+    } catch {
+      setSupabaseHost("invalid-url");
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    setConnectivityStatus("checking");
+    setConnectivityError("");
+
+    fetch(`${url}/auth/v1/health`, {
+      method: "GET",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+      signal: controller.signal,
+    })
+      .then((res) => {
+        setConnectivityStatus(res.ok ? `ok-${res.status}` : `http-${res.status}`);
+      })
+      .catch((error) => {
+        setConnectivityStatus("error");
+        setConnectivityError(error instanceof Error ? error.message : "fetch failed");
+      })
+      .finally(() => clearTimeout(timeoutId));
   }, []);
 
   useEffect(() => {
@@ -857,7 +937,18 @@ export default function App() {
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <p className="text-slate-400">Preparing admin dashboard...</p>
+        <div className="text-center space-y-2">
+          <p className="text-slate-400">Preparing admin dashboard...</p>
+          {import.meta.env.DEV ? (
+            <div className="text-[11px] text-slate-600">
+              <p>Status: {authStatus}</p>
+              {authInitError ? <p>Error: {authInitError}</p> : null}
+              <p>Connectivity: {connectivityStatus}</p>
+              {supabaseHost ? <p>Supabase host: {supabaseHost}</p> : null}
+              {connectivityError ? <p>Connectivity error: {connectivityError}</p> : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }

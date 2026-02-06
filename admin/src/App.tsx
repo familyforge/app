@@ -1027,10 +1027,10 @@ export default function App() {
         {/* Logo */}
         <div className="px-5 pt-6 pb-4">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="FamilyForge" className="h-9 w-9 rounded-xl object-cover ring-2 ring-violet-500/20" />
+            <img src={logo} alt="FamilyForge" className="h-12 w-12 rounded-xl object-cover ring-2 ring-violet-500/20" />
             <div>
-              <h1 className="text-[15px] font-semibold text-white tracking-tight">FamilyForge</h1>
-              <p className="text-slate-500 text-[10px] uppercase tracking-widest">Admin Console</p>
+              <h1 className="text-xl font-semibold text-white tracking-tight">FamilyForge</h1>
+              <p className="text-slate-500 text-xs uppercase tracking-widest">Admin Console</p>
             </div>
           </div>
         </div>

@@ -489,6 +489,9 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
           </div>
 
           {error ? <p className="text-red-400 text-sm">{error}</p> : null}
+          <p className="text-slate-500 text-xs">
+            Use your Supabase Auth email and password.
+          </p>
 
           <button
             onClick={handleLogin}

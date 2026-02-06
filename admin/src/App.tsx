@@ -43,8 +43,8 @@ import {
   History,
 } from "lucide-react";
 
-// Logo (using Unsplash family forge brand image)
-const logo = "https://images.unsplash.com/photo-1607453998774-d533f65dac99?w=128&h=128&fit=crop";
+// Logo
+const logo = "/fflogo.png";
 
 // Types
 type Parent = {

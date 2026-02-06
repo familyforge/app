@@ -355,7 +355,7 @@ const fetchAdminUsersFromDb = async (): Promise<AdminUser[]> => {
   if (!isSupabaseConfigured()) return [];
   const { data, error } = await supabase
     .from("admin_users")
-    .select("id, email, role, password_hash, created_at, allowed_pages");
+    .select("id, email, role, password_hash, created_at");
   if (error || !data) {
     return [];
   }
@@ -365,7 +365,7 @@ const fetchAdminUsersFromDb = async (): Promise<AdminUser[]> => {
     role: (row.role === "superadmin" ? "superadmin" : "admin") as AdminRole,
     passwordHash: row.password_hash,
     createdAt: row.created_at,
-    allowedPages: row.allowed_pages as AdminPage[] | undefined,
+    allowedPages: undefined,
   }));
 };
 
@@ -376,7 +376,7 @@ const fetchAdminProfile = async (user: SupabaseUserRef): Promise<AdminUser | nul
   const normalizedEmail = user.email?.toLowerCase() ?? "";
   const { data, error } = await supabase
     .from("admin_users")
-    .select("id, email, role, created_at, allowed_pages")
+    .select("id, email, role, created_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -388,7 +388,7 @@ const fetchAdminProfile = async (user: SupabaseUserRef): Promise<AdminUser | nul
   if (!data && normalizedEmail) {
     const { data: emailData, error: emailError } = await supabase
       .from("admin_users")
-      .select("id, email, role, created_at, allowed_pages")
+      .select("id, email, role, created_at")
       .eq("email", normalizedEmail)
       .maybeSingle();
 
@@ -404,7 +404,7 @@ const fetchAdminProfile = async (user: SupabaseUserRef): Promise<AdminUser | nul
       email: emailData.email,
       role: emailData.role === "superadmin" ? "superadmin" : "admin",
       createdAt: emailData.created_at,
-      allowedPages: emailData.allowed_pages as AdminPage[] | undefined,
+      allowedPages: undefined,
     };
   }
 
@@ -415,7 +415,7 @@ const fetchAdminProfile = async (user: SupabaseUserRef): Promise<AdminUser | nul
     email: data.email,
     role: data.role === "superadmin" ? "superadmin" : "admin",
     createdAt: data.created_at,
-    allowedPages: data.allowed_pages as AdminPage[] | undefined,
+    allowedPages: undefined,
   };
 };
 
@@ -3310,7 +3310,6 @@ function AdminAccessPage({
             email: normalized,
             role: newRole,
             password_hash: passwordHash,
-            allowed_pages: newRole === "superadmin" ? null : selectedPages.length > 0 ? selectedPages : null,
             updated_at: new Date().toISOString(),
           });
       }
@@ -3372,7 +3371,7 @@ function AdminAccessPage({
     if (isSupabaseConfigured()) {
       supabase
         .from("admin_users")
-        .upsert({ email: targetEmail, allowed_pages: pages.length > 0 ? pages : null, updated_at: new Date().toISOString() });
+        .upsert({ email: targetEmail, updated_at: new Date().toISOString() });
     }
     setEditingPermissions(null);
   };

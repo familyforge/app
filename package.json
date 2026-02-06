@@ -8,7 +8,7 @@
     "android": "powershell -Command \"$env:EXPO_ROUTER_APP_ROOT='src/app'; expo start --android\"",
     "ios": "powershell -Command \"$env:EXPO_ROUTER_APP_ROOT='src/app'; expo start --ios\"",
     "web": "powershell -Command \"$env:EXPO_ROUTER_APP_ROOT='src/app'; expo start --web\"",
-    "web:build": "cross-env EXPO_ROUTER_APP_ROOT=src/app expo export:web",
+    "web:build": "cross-env EXPO_ROUTER_APP_ROOT=src/app expo export --platform web",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "admin:dev": "bunx vite --config admin/vite.config.ts",

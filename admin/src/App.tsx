@@ -680,45 +680,60 @@ export default function App() {
   useEffect(() => {
     let isActive = true;
     const initAuth = async () => {
-      const localAdmins = loadAdminUsers();
-      setAdminUsers(localAdmins);
-
-      if (!isSupabaseConfigured()) {
-        setAuthChecked(true);
-        return;
-      }
-
-      const getSessionWithTimeout = () => {
-        const timeout = new Promise<{ data: { session: null } }>((resolve) => {
-          setTimeout(() => resolve({ data: { session: null } }), 8000);
+      const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const timeout = new Promise<T>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("Request timed out")), ms);
         });
-        return Promise.race([supabase.auth.getSession(), timeout]);
+        try {
+          return await Promise.race([promise, timeout]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
       };
 
-      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
       try {
-        const result = await getSessionWithTimeout();
-        session = result?.data?.session ?? null;
-      } catch (error) {
-        console.warn("Admin session check failed:", error);
-      }
-      if (!isActive) return;
+        const localAdmins = loadAdminUsers();
+        setAdminUsers(localAdmins);
 
-      if (session?.user) {
-        const adminProfile = await fetchAdminProfile(session.user);
-        if (adminProfile) {
-          setAuthenticated(true);
-          setRole(adminProfile.role);
-          setCurrentEmail(adminProfile.email.toLowerCase());
-        } else {
-          await supabase.auth.signOut();
-          setAuthenticated(false);
-          setRole("admin");
-          setCurrentEmail("");
+        if (!isSupabaseConfigured()) {
+          return;
         }
-      }
 
-      setAuthChecked(true);
+        const getSessionWithTimeout = () => {
+          const timeout = new Promise<{ data: { session: null } }>((resolve) => {
+            setTimeout(() => resolve({ data: { session: null } }), 8000);
+          });
+          return Promise.race([supabase.auth.getSession(), timeout]);
+        };
+
+        let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
+        try {
+          const result = await getSessionWithTimeout();
+          session = result?.data?.session ?? null;
+        } catch (error) {
+          console.warn("Admin session check failed:", error);
+        }
+        if (!isActive) return;
+
+        if (session?.user) {
+          const adminProfile = await withTimeout(fetchAdminProfile(session.user), 8000);
+          if (adminProfile) {
+            setAuthenticated(true);
+            setRole(adminProfile.role);
+            setCurrentEmail(adminProfile.email.toLowerCase());
+          } else {
+            await supabase.auth.signOut();
+            setAuthenticated(false);
+            setRole("admin");
+            setCurrentEmail("");
+          }
+        }
+      } catch (error) {
+        console.warn("Admin auth init failed:", error);
+      } finally {
+        if (isActive) setAuthChecked(true);
+      }
     };
 
     initAuth();

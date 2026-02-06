@@ -508,24 +508,10 @@ export default function OnboardingScreen() {
           return; // Don't proceed if account creation failed
         }
         
-        // Account created successfully - send welcome email
+        // Account created successfully
         setAccountCreated(true);
         
-        // Send welcome email (don't block on this)
-        sendWelcomeEmail(
-          { email: parentEmail, name: fullName },
-          fullName
-        ).then((emailResult) => {
-          if (!emailResult.success) {
-            console.warn('Welcome email failed:', emailResult.error);
-          } else {
-            console.log('Welcome email sent successfully!');
-          }
-        }).catch((err) => {
-          console.warn('Welcome email error:', err);
-        });
-
-        // Send verification code email (block on this)
+        // Send verification code email FIRST (block on this)
         const verificationSent = await sendVerificationCode();
         if (!verificationSent) {
           setAccountError("We couldn't send your verification code. Please try again.");
@@ -534,6 +520,22 @@ export default function OnboardingScreen() {
         }
         setEmailVerified(false);
         setVerificationInput("");
+        
+        // Send welcome email 2 minutes later (don't block on this)
+        setTimeout(() => {
+          sendWelcomeEmail(
+            { email: parentEmail, name: fullName },
+            fullName
+          ).then((emailResult) => {
+            if (!emailResult.success) {
+              console.warn('Welcome email failed:', emailResult.error);
+            } else {
+              console.log('Welcome email sent successfully!');
+            }
+          }).catch((err) => {
+            console.warn('Welcome email error:', err);
+          });
+        }, 120000); // 2 minutes = 120,000 milliseconds
         
       } catch (error) {
         setAccountError(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -565,7 +567,11 @@ export default function OnboardingScreen() {
 
       setEmailVerified(true);
       setIsVerifying(false);
-      nextStep();
+      
+      // Small delay to ensure state updates before navigating to next step
+      setTimeout(() => {
+        nextStep();
+      }, 100);
       return;
     }
 

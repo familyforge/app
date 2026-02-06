@@ -663,7 +663,20 @@ export default function App() {
         return;
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const getSessionWithTimeout = () => {
+        const timeout = new Promise<{ data: { session: null } }>((resolve) => {
+          setTimeout(() => resolve({ data: { session: null } }), 8000);
+        });
+        return Promise.race([supabase.auth.getSession(), timeout]);
+      };
+
+      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
+      try {
+        const result = await getSessionWithTimeout();
+        session = result?.data?.session ?? null;
+      } catch (error) {
+        console.warn("Admin session check failed:", error);
+      }
       if (!isActive) return;
 
       if (session?.user) {

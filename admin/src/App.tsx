@@ -374,14 +374,41 @@ type SupabaseUserRef = { id: string; email?: string | null };
 const fetchAdminProfile = async (user: SupabaseUserRef): Promise<AdminUser | null> => {
   if (!isSupabaseConfigured()) return null;
   const normalizedEmail = user.email?.toLowerCase() ?? "";
-  const emailFilter = normalizedEmail ? `,email.eq.${normalizedEmail}` : "";
   const { data, error } = await supabase
     .from("admin_users")
     .select("id, email, role, created_at, allowed_pages")
-    .or(`id.eq.${user.id}${emailFilter}`)
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    console.warn("Admin profile lookup failed:", error.message);
+    return null;
+  }
+
+  if (!data && normalizedEmail) {
+    const { data: emailData, error: emailError } = await supabase
+      .from("admin_users")
+      .select("id, email, role, created_at, allowed_pages")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (emailError) {
+      console.warn("Admin email lookup failed:", emailError.message);
+      return null;
+    }
+
+    if (!emailData) return null;
+
+    return {
+      id: emailData.id,
+      email: emailData.email,
+      role: emailData.role === "superadmin" ? "superadmin" : "admin",
+      createdAt: emailData.created_at,
+      allowedPages: emailData.allowed_pages as AdminPage[] | undefined,
+    };
+  }
+
+  if (!data) return null;
 
   return {
     id: data.id,
@@ -447,7 +474,7 @@ function AdminLogin({ onSuccess }: { onSuccess: (role: AdminRole, email: string)
     if (!adminProfile) {
       await supabase.auth.signOut();
       setLoading(false);
-      setError("Access denied. Admin privileges required.");
+      setError("Access denied. Admin privileges required. Check admin_users access in Supabase.");
       return;
     }
 

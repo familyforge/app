@@ -475,7 +475,7 @@ export default function OnboardingScreen() {
 
   // Handle continue
   const handleContinue = async () => {
-    if (!canProceed) return;
+    if (!canProceed && step !== 24) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // PIN validation
@@ -2157,6 +2157,7 @@ export default function OnboardingScreen() {
   const showBackButton = step > 0 && step !== 17 && step !== 23 && step < 24;
   // Show continue button
   const showContinueButton = step !== 0 && step !== 17;
+  const isFinalStep = step === 24;
   // Get continue label
   const getContinueLabel = () => {
     if (step === 22) return `Continue with ${selectedPlan === "free" ? "Free" : selectedPlan === "pro" ? "Pro" : "Forge"}`;
@@ -2210,9 +2211,9 @@ export default function OnboardingScreen() {
                 <View style={{ paddingHorizontal: 20, paddingBottom: 24 }}>
                 <Pressable
                   onPress={handleContinue}
-                  disabled={!canProceed || isCreatingAccount}
+                  disabled={!isFinalStep && (!canProceed || isCreatingAccount)}
                   style={{
-                    backgroundColor: (canProceed && !isCreatingAccount) ? parentTheme.primary : "rgba(255,255,255,0.1)",
+                    backgroundColor: (isFinalStep || (canProceed && !isCreatingAccount)) ? parentTheme.primary : "rgba(255,255,255,0.1)",
                     borderRadius: 16,
                     paddingVertical: 18,
                     alignItems: "center",
@@ -2222,7 +2223,7 @@ export default function OnboardingScreen() {
                   }}
                 >
                   {isCreatingAccount && <ActivityIndicator size="small" color="#000" />}
-                  <Text style={{ fontSize: 17, fontWeight: "700", color: (canProceed && !isCreatingAccount) ? "#000" : "rgba(255,255,255,0.3)" }}>
+                  <Text style={{ fontSize: 17, fontWeight: "700", color: (isFinalStep || (canProceed && !isCreatingAccount)) ? "#000" : "rgba(255,255,255,0.3)" }}>
                     {isCreatingAccount ? "Creating Account..." : getContinueLabel()}
                   </Text>
                 </Pressable>

@@ -588,7 +588,7 @@ export default function OnboardingScreen() {
       const fullName = `${parentFirstName} ${parentLastName}`.trim();
       const mapRole = (pt: ParentType | null) => pt === "father" || pt === "mother" ? "other" : "other";
       
-      // Update local profile store
+      // Update local profile store FIRST (this is synchronous and critical)
       updateProfile({
         name: fullName || undefined,
         email: parentEmail || undefined,
@@ -598,42 +598,15 @@ export default function OnboardingScreen() {
         plan: selectedPlan === "forge" ? "forge" : selectedPlan === "pro" ? "pro" : "free",
       });
 
-      // Get the current user ID for syncing
-      const currentUser = await getCurrentUser();
-      const parentId = currentUser?.id || `local-${Date.now()}`;
-
-      // Sync parent profile to cloud (background)
-      const parentData: ParentData = {
-        id: parentId,
-        email: parentEmail,
-        name: fullName,
-        subscription_tier: selectedPlan === "forge" || selectedPlan === "pro" ? "premium" : "free",
-        plan_code: selectedPlan || "free",
-        avatar_url: avatarUrl || undefined,
-        onboarding_data: {
-          parentType,
-          dailyPainPoints,
-          emotionalTrigger,
-          parentStrength,
-          hopeChange,
-          commitment,
-          howToRemember,
-        },
-      };
-      syncParentToCloud(parentData).catch((err) => {
-        console.warn("Parent sync failed (will retry):", err);
-      });
-
-      // Add children locally AND sync to cloud
+      // Add children to local store FIRST (critical - must happen before navigation)
+      const childrenToSync: Array<{ localId: string; child: typeof childDrafts[0]; age: number }> = [];
       childDrafts.forEach((child) => {
         if (child.firstName.trim()) {
           const dob = new Date(child.dateOfBirth || Date.now());
           const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-          
-          // Generate a unique ID for this child
           const childLocalId = createUuid();
           
-          // Add to local store
+          // Add to local store immediately
           addChild({
             id: childLocalId,
             name: child.firstName.trim(),
@@ -641,27 +614,77 @@ export default function OnboardingScreen() {
             className: child.academicClass ? ACADEMIC_CLASS_LABELS[child.academicClass] : undefined,
           });
 
-          // Sync to cloud (background)
-          const childData: ChildData = {
-            id: childLocalId,
-            parent_id: parentId,
-            name: child.firstName.trim(),
-            age: Math.max(1, age),
-            points: 0,
-            class: child.academicClass ? ACADEMIC_CLASS_LABELS[child.academicClass] : null,
-            birthday: child.dateOfBirth || null,
-            interests: null,
-            learning_style: null,
-            special_needs: null,
-          };
-          syncChildToCloud(childData).catch((err) => {
-            console.warn("Child sync failed (will retry):", err);
-          });
+          childrenToSync.push({ localId: childLocalId, child, age });
         }
       });
 
+      // Mark complete and navigate IMMEDIATELY - don't wait for cloud sync
       markComplete();
       router.replace("/(tabs)/home");
+
+      // Cloud sync happens in background AFTER navigation (fire-and-forget)
+      // This ensures we never block the user from getting to the dashboard
+      (async () => {
+        try {
+          // Get the current user ID for syncing (with timeout)
+          let parentId = `local-${Date.now()}`;
+          try {
+            const currentUser = await Promise.race([
+              getCurrentUser(),
+              new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3s timeout
+            ]);
+            if (currentUser?.id) {
+              parentId = currentUser.id;
+            }
+          } catch (userErr) {
+            console.warn("getCurrentUser failed, using local ID:", userErr);
+          }
+
+          // Sync parent profile to cloud
+          const parentData: ParentData = {
+            id: parentId,
+            email: parentEmail,
+            name: fullName,
+            subscription_tier: selectedPlan === "forge" || selectedPlan === "pro" ? "premium" : "free",
+            plan_code: selectedPlan || "free",
+            avatar_url: avatarUrl || undefined,
+            onboarding_data: {
+              parentType,
+              dailyPainPoints,
+              emotionalTrigger,
+              parentStrength,
+              hopeChange,
+              commitment,
+              howToRemember,
+            },
+          };
+          syncParentToCloud(parentData).catch((err) => {
+            console.warn("Parent sync failed (will retry):", err);
+          });
+
+          // Sync children to cloud
+          childrenToSync.forEach(({ localId, child, age }) => {
+            const childData: ChildData = {
+              id: localId,
+              parent_id: parentId,
+              name: child.firstName.trim(),
+              age: Math.max(1, age),
+              points: 0,
+              class: child.academicClass ? ACADEMIC_CLASS_LABELS[child.academicClass] : null,
+              birthday: child.dateOfBirth || null,
+              interests: null,
+              learning_style: null,
+              special_needs: null,
+            };
+            syncChildToCloud(childData).catch((err) => {
+              console.warn("Child sync failed (will retry):", err);
+            });
+          });
+        } catch (syncErr) {
+          console.warn("Background sync error (non-blocking):", syncErr);
+        }
+      })();
+
       return;
     }
 

@@ -476,15 +476,6 @@ export default function UpgradeScreen() {
                           >
                             Forge Plan
                           </Text>
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: "rgba(255,255,255,0.6)",
-                              marginTop: 2,
-                            }}
-                          >
-                            Everything in Pro, plus:
-                          </Text>
                         </View>
                         <View style={{ alignItems: "flex-end" }}>
                           <Text
@@ -515,62 +506,106 @@ export default function UpgradeScreen() {
                         </View>
                       </View>
 
-                      <View style={{ marginTop: 10, gap: 5 }}>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <Check size={15} color="#F59E0B" />
-                          <Text
-                            style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                      {/* Includes All Pro Features Banner */}
+                      <View
+                        style={{
+                          marginTop: 12,
+                          backgroundColor: "rgba(16, 185, 129, 0.15)",
+                          borderRadius: 12,
+                          padding: 12,
+                          borderWidth: 1,
+                          borderColor: "rgba(16, 185, 129, 0.3)",
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <View
+                            style={{
+                              backgroundColor: "#10B981",
+                              borderRadius: 6,
+                              padding: 4,
+                            }}
                           >
-                            Unlimited children
+                            <Check size={12} color="#fff" strokeWidth={3} />
+                          </View>
+                          <Text style={{ fontSize: 13, fontWeight: "700", color: "#10B981" }}>
+                            INCLUDES ALL PRO FEATURES
                           </Text>
                         </View>
-                        <View
+                        <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginLeft: 28 }}>
+                          Unlimited tasks & rewards • Progress tracking • Points & leaderboards
+                        </Text>
+                      </View>
+
+                      {/* Plus these Forge-exclusive features */}
+                      <View style={{ marginTop: 12 }}>
+                        <Text
                           style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
+                            fontSize: 12,
+                            fontWeight: "700",
+                            color: "#F59E0B",
+                            marginBottom: 8,
+                            letterSpacing: 0.5,
                           }}
                         >
-                          <Check size={15} color="#F59E0B" />
-                          <Text
-                            style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                          + FORGE EXCLUSIVE FEATURES
+                        </Text>
+                        <View style={{ gap: 5 }}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
                           >
-                            Learning assignments
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <Check size={15} color="#F59E0B" />
-                          <Text
-                            style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                            <Check size={15} color="#F59E0B" />
+                            <Text
+                              style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                            >
+                              Unlimited children
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
                           >
-                            Family calendar
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <Check size={15} color="#F59E0B" />
-                          <Text
-                            style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                            <Check size={15} color="#F59E0B" />
+                            <Text
+                              style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                            >
+                              Learning assignments
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
                           >
-                            Co-parent access
-                          </Text>
+                            <Check size={15} color="#F59E0B" />
+                            <Text
+                              style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                            >
+                              Family calendar
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <Check size={15} color="#F59E0B" />
+                            <Text
+                              style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}
+                            >
+                              Co-parent access
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>

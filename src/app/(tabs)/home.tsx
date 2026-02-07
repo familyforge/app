@@ -248,43 +248,48 @@ export default function HomeScreen() {
                 </Pressable>
                 
                 {/* Profile Avatar with Glow Effect */}
-                <View style={{ position: 'relative' }}>
-                  {/* Gold glow ring behind avatar */}
-                  <Animated.View
-                    style={[
-                      {
-                        position: 'absolute',
-                        top: -3,
-                        left: -3,
-                        right: -3,
-                        bottom: -3,
-                        borderRadius: 14,
-                        backgroundColor: '#F59E0B',
-                      },
-                      glowStyle,
-                    ]}
-                  />
-                  <Pressable
-                    onPress={() => router.push('/(tabs)/profile')}
-                    style={{ 
-                      width: 44, 
-                      height: 44, 
-                      borderRadius: 12, 
-                      backgroundColor: 'rgba(255,255,255,0.1)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                      borderWidth: 2,
-                      borderColor: 'rgba(255,255,255,0.2)',
-                    }}
-                  >
-                    {profile.avatarUrl ? (
-                      <Image source={{ uri: profile.avatarUrl }} style={{ width: 44, height: 44 }} />
-                    ) : (
-                      <User size={20} color="#E5E8F5" />
-                    )}
-                  </Pressable>
-                </View>
+                <Pressable 
+                  onPress={() => router.push('/(tabs)/profile')}
+                  style={{ alignItems: 'center' }}
+                >
+                  <View style={{ position: 'relative' }}>
+                    {/* Gold glow ring behind avatar */}
+                    <Animated.View
+                      style={[
+                        {
+                          position: 'absolute',
+                          top: -3,
+                          left: -3,
+                          right: -3,
+                          bottom: -3,
+                          borderRadius: 14,
+                          backgroundColor: '#F59E0B',
+                        },
+                        glowStyle,
+                      ]}
+                    />
+                    <View
+                      style={{ 
+                        width: 44, 
+                        height: 44, 
+                        borderRadius: 12, 
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        borderWidth: 2,
+                        borderColor: 'rgba(255,255,255,0.2)',
+                      }}
+                    >
+                      {profile.avatarUrl ? (
+                        <Image source={{ uri: profile.avatarUrl }} style={{ width: 44, height: 44 }} />
+                      ) : (
+                        <User size={20} color="#E5E8F5" />
+                      )}
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 10, color: 'rgba(229,232,245,0.7)', marginTop: 4, fontWeight: '500' }}>Profile</Text>
+                </Pressable>
               </View>
             </View>
             

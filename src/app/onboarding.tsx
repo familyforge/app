@@ -16,7 +16,10 @@ import {
   Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+// KeyboardAwareScrollView doesn't work on web - use ScrollView as fallback
+const KeyboardAwareScrollView = Platform.OS === 'web' 
+  ? ScrollView 
+  : require('react-native-keyboard-controller').KeyboardAwareScrollView;
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -393,6 +396,24 @@ export default function OnboardingScreen() {
       clearTimeout(timer);
     };
   }, [step, nextStep]);
+
+  // Auto-verify OTP when correct code is entered
+  useEffect(() => {
+    if (step !== 20) return;
+    if (verificationInput.length !== 4) return;
+    if (isVerifying) return;
+    if (verificationInput !== emailVerificationCode) return;
+    
+    // Correct code entered - auto-verify with brief delay for UX feedback
+    setIsVerifying(true);
+    const timer = setTimeout(() => {
+      setEmailVerified(true);
+      setIsVerifying(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      nextStep();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [step, verificationInput, emailVerificationCode, isVerifying, nextStep, setEmailVerified]);
 
   // Check if can proceed
   const canProceed = useMemo(() => {

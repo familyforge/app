@@ -416,13 +416,11 @@ export default function OnboardingScreen() {
       case 16: return true;
       case 17: return false; // Auto-advances
       case 18: return true;
-      case 19: return parentEmail.trim().includes("@");
-      case 20:
-        return pin.length === 6;
-      case 21: return verificationInput.length === 4 && !isVerifying;
-      case 22: return selectedPlan !== null;
-      case 23: return avatarUrl.length > 0;
-      case 24: return true;
+      case 19: return parentEmail.trim().includes("@") && pin.length === 6; // Email + PIN combined
+      case 20: return verificationInput.length === 4 && !isVerifying; // Email verification (was 21)
+      case 21: return selectedPlan !== null; // Plan selection (was 22)
+      case 22: return avatarUrl.length > 0; // Avatar setup (was 23)
+      case 23: return true; // Final step (was 24)
       default: return true;
     }
   }, [step, parentType, youAreNotAloneResponse, parentIdentityWord, dailyPainPoints, emotionalTrigger, guiltReflection, fixOneThing, childWorry, parentFirstName, howToRemember, parentFear, hopeChange, commitment, parentStrength, childrenCount, childDrafts, parentEmail, pin, confirmPin, verificationInput, isVerifying, selectedPlan, avatarUrl]);
@@ -475,16 +473,16 @@ export default function OnboardingScreen() {
 
   // Handle continue
   const handleContinue = async () => {
-    if (!canProceed && step !== 24) return;
+    if (!canProceed && step !== 23) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // PIN validation
-    if (step === 20) {
+    // PIN validation and account creation at step 19 (combined email + PIN screen)
+    if (step === 19) {
       setParentPin(pin);
     }
 
-    // Create Supabase account at step 20 (after email and PIN are set)
-    if (step === 20 && !accountCreated) {
+    // Create Supabase account at step 19 (email + PIN are on same screen now)
+    if (step === 19 && !accountCreated) {
       setIsCreatingAccount(true);
       setAccountError(null);
       
@@ -546,7 +544,8 @@ export default function OnboardingScreen() {
       setIsCreatingAccount(false);
     }
 
-    if (step === 21) {
+    // Email verification (was step 21, now step 20)
+    if (step === 20) {
       setIsVerifying(true);
       setVerificationError(null);
 
@@ -575,16 +574,18 @@ export default function OnboardingScreen() {
       return;
     }
 
-    if (step === 22) {
+    // Plan selection (was step 22, now step 21)
+    if (step === 21) {
       setPaymentComplete(true);
     }
 
-    if (step === 23) {
+    // Avatar setup (was step 23, now step 22)
+    if (step === 22) {
       setAvatarSetupComplete(true);
     }
 
-    // Final step - Save data locally AND sync to cloud
-    if (step === 24) {
+    // Final step (was step 24, now step 23) - Save data locally AND sync to cloud
+    if (step === 23) {
       const fullName = `${parentFirstName} ${parentLastName}`.trim();
       const mapRole = (pt: ParentType | null) => pt === "father" || pt === "mother" ? "other" : "other";
       
@@ -1729,117 +1730,151 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 19: Email Collection
+    // STEP 19: Create Your Account (Email + PIN combined)
     if (step === 19) {
       return (
         <Animated.View entering={FadeIn.duration(500)} style={{ paddingHorizontal: 20 }}>
-          <View style={{ alignItems: "center", marginBottom: 40 }}>
-            <View style={{ width: 72, height: 72, backgroundColor: `${parentTheme.primary}20`, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
-              <Mail size={36} color={parentTheme.primary} />
+          {/* Header */}
+          <View style={{ alignItems: "center", marginBottom: 32 }}>
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
+              <Animated.View 
+                entering={ZoomIn.delay(100).duration(400)} 
+                style={{ width: 44, height: 44, backgroundColor: `${parentTheme.primary}25`, borderRadius: 22, alignItems: "center", justifyContent: "center" }}
+              >
+                <Mail size={22} color={parentTheme.primary} />
+              </Animated.View>
+              <Animated.View 
+                entering={ZoomIn.delay(200).duration(400)} 
+                style={{ width: 44, height: 44, backgroundColor: "rgba(16, 185, 129, 0.25)", borderRadius: 22, alignItems: "center", justifyContent: "center" }}
+              >
+                <Lock size={22} color="#10B981" />
+              </Animated.View>
             </View>
-            <Text style={{ fontSize: 26, fontWeight: "700", color: "#fff", textAlign: "center" }}>
-              Stay Connected
+            <Text style={{ fontSize: 28, fontWeight: "800", color: "#fff", textAlign: "center", letterSpacing: -0.5 }}>
+              Create Your Account
             </Text>
-            <Text style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", textAlign: "center", marginTop: 12, lineHeight: 22 }}>
-              We'll send your personalized welcome guide and weekly family tips
+            <Text style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", textAlign: "center", marginTop: 10, lineHeight: 22 }}>
+              Your family's command center awaits
             </Text>
           </View>
 
-          <TextInput
-            style={{
-              backgroundColor: "rgba(255,255,255,0.08)",
-              borderRadius: 16,
-              padding: 18,
-              fontSize: 17,
-              color: "#fff",
-              borderWidth: 1,
+          {/* Email Input */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.7)", marginBottom: 10, marginLeft: 4 }}>
+              Email address
+            </Text>
+            <View style={{ 
+              backgroundColor: "rgba(255,255,255,0.08)", 
+              borderRadius: 16, 
+              borderWidth: 2, 
               borderColor: parentEmail.includes("@") ? parentTheme.primary : "rgba(255,255,255,0.1)",
-            }}
-            placeholder="Your email address"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={parentEmail}
-            onChangeText={setParentEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoFocus
-          />
-
-          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 16 }}>
-            We respect your privacy. No spam, ever.
-          </Text>
-        </Animated.View>
-      );
-    }
-
-    // STEP 20: PIN Creation
-    if (step === 20) {
-      return (
-        <Animated.View entering={FadeIn.duration(500)} style={{ paddingHorizontal: 20 }}>
-          <View style={{ alignItems: "center", marginBottom: 40 }}>
-            <View style={{ width: 72, height: 72, backgroundColor: "rgba(16, 185, 129, 0.2)", borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
-              <Lock size={36} color="#10B981" />
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 16,
+            }}>
+              <Mail size={20} color={parentEmail.includes("@") ? parentTheme.primary : "rgba(255,255,255,0.4)"} />
+              <TextInput
+                style={{
+                  flex: 1,
+                  paddingVertical: 16,
+                  paddingHorizontal: 12,
+                  fontSize: 17,
+                  color: "#fff",
+                }}
+                placeholder="you@example.com"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={parentEmail}
+                onChangeText={setParentEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {parentEmail.includes("@") && (
+                <Animated.View entering={ZoomIn.duration(200)}>
+                  <Check size={20} color="#10B981" />
+                </Animated.View>
+              )}
             </View>
-            <Text style={{ fontSize: 26, fontWeight: "700", color: "#fff", textAlign: "center" }}>
-              Secure Your Account
-            </Text>
-            <Text style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", textAlign: "center", marginTop: 8 }}>
-              Create a 6-digit PIN for quick access
-            </Text>
           </View>
 
-          <View style={{ gap: 20 }}>
-            {/* Enter PIN */}
-            <View>
-              <Pressable onPress={() => pinInputRef.current?.focus()} style={{ alignItems: "center" }}>
-                <View style={{ flexDirection: "row", gap: 10 }} pointerEvents="none">
+          {/* PIN Input */}
+          <View>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.7)", marginBottom: 10, marginLeft: 4 }}>
+              Create your 6-digit PIN
+            </Text>
+            <Pressable onPress={() => pinInputRef.current?.focus()}>
+              <View style={{ 
+                backgroundColor: "rgba(255,255,255,0.08)", 
+                borderRadius: 16, 
+                borderWidth: 2, 
+                borderColor: pin.length === 6 ? "#10B981" : "rgba(255,255,255,0.1)",
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+              }}>
+                <Lock size={20} color={pin.length === 6 ? "#10B981" : "rgba(255,255,255,0.4)"} />
+                <View style={{ flex: 1, flexDirection: "row", justifyContent: "center", gap: 8, paddingHorizontal: 12 }}>
                   {Array.from({ length: 6 }).map((_, index) => (
                     <View
                       key={`pin-${index}`}
                       style={{
-                        width: 50,
-                        height: 60,
-                        borderWidth: 2,
-                        borderRadius: 12,
-                        borderColor: index === pin.length ? "#10B981" : pin[index] ? "#10B981" : "rgba(255,255,255,0.15)",
-                        backgroundColor: "rgba(255,255,255,0.08)",
+                        width: 36,
+                        height: 40,
+                        borderRadius: 8,
+                        backgroundColor: pin[index] ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.05)",
                         justifyContent: "center",
                         alignItems: "center",
+                        borderWidth: 1,
+                        borderColor: index === pin.length ? "#10B981" : pin[index] ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.08)",
                       }}
                     >
-                      <Text style={{ fontSize: 28, fontWeight: "700", color: "#fff" }}>
-                        {pin[index] ? (showPin ? pin[index] : "*") : ""}
+                      <Text style={{ fontSize: 20, fontWeight: "700", color: "#fff" }}>
+                        {pin[index] ? (showPin ? pin[index] : "•") : ""}
                       </Text>
                     </View>
                   ))}
                 </View>
-                <TextInput
-                  ref={pinInputRef}
-                  value={pin}
-                  onChangeText={handlePinChange}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  autoFocus
-                  style={{ position: "absolute", opacity: 0, width: "100%", height: "100%" }}
-                />
-              </Pressable>
-            </View>
+                {pin.length === 6 && (
+                  <Animated.View entering={ZoomIn.duration(200)}>
+                    <Check size={20} color="#10B981" />
+                  </Animated.View>
+                )}
+              </View>
+              <TextInput
+                ref={pinInputRef}
+                value={pin}
+                onChangeText={handlePinChange}
+                keyboardType="number-pad"
+                maxLength={6}
+                style={{ position: "absolute", opacity: 0, width: "100%", height: "100%" }}
+              />
+            </Pressable>
 
             {/* Show/Hide PIN Toggle */}
             <Pressable 
               onPress={() => setShowPin(!showPin)} 
-              style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12 }}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14 }}
             >
               {showPin ? (
-                <EyeOff size={20} color="rgba(255,255,255,0.6)" />
+                <EyeOff size={16} color="rgba(255,255,255,0.5)" />
               ) : (
-                <Eye size={20} color="rgba(255,255,255,0.6)" />
+                <Eye size={16} color="rgba(255,255,255,0.5)" />
               )}
-              <Text style={{ fontSize: 15, color: "rgba(255,255,255,0.6)" }}>
-                {showPin ? "Hide PIN" : "Tap to view PIN"}
+              <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>
+                {showPin ? "Hide PIN" : "Show PIN"}
               </Text>
             </Pressable>
           </View>
 
+          {/* Helper text */}
+          <View style={{ backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12, padding: 14, marginTop: 8 }}>
+            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textAlign: "center", lineHeight: 18 }}>
+              You'll use this PIN to log in quickly.{"\n"}Choose something you'll remember!
+            </Text>
+          </View>
+
+          {/* Error states */}
           {pinError && (
             <Text style={{ fontSize: 14, color: "#EF4444", textAlign: "center", marginTop: 16 }}>{pinError}</Text>
           )}
@@ -1861,8 +1896,8 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 21: Email Verification Code
-    if (step === 21) {
+    // STEP 20: Email Verification Code
+    if (step === 20) {
       const canResend = resendCountdown === 0;
 
       return (
@@ -1936,8 +1971,8 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 22: Paywall
-    if (step === 22) {
+    // STEP 21: Paywall
+    if (step === 21) {
       const getPrice = (plan: "free" | "pro" | "forge", cycle: "monthly" | "yearly") => {
         const basePrice = planPrices[plan][cycle];
         return formatPrice(basePrice, currencyType);
@@ -2099,8 +2134,8 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 23: Avatar Setup
-    if (step === 23) {
+    // STEP 22: Avatar Setup
+    if (step === 22) {
       return (
         <Animated.View entering={FadeIn.duration(500)} style={{ paddingHorizontal: 20 }}>
           <View style={{ alignItems: "center", marginBottom: 32 }}>
@@ -2136,8 +2171,8 @@ export default function OnboardingScreen() {
       );
     }
 
-    // STEP 24: Final/Ready
-    if (step === 24) {
+    // STEP 23: Final/Ready
+    if (step === 23) {
       return (
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24 }}>
           <Animated.View entering={ZoomIn.duration(500)} style={{ alignItems: "center" }}>
@@ -2177,14 +2212,14 @@ export default function OnboardingScreen() {
   };
 
   // Show back button
-  const showBackButton = step > 0 && step !== 17 && step !== 23 && step < 24;
+  const showBackButton = step > 0 && step !== 17 && step !== 22 && step < 23;
   // Show continue button
   const showContinueButton = step !== 0 && step !== 17;
-  const isFinalStep = step === 24;
+  const isFinalStep = step === 23;
   // Get continue label
   const getContinueLabel = () => {
-    if (step === 22) return `Continue with ${selectedPlan === "free" ? "Free" : selectedPlan === "pro" ? "Pro" : "Forge"}`;
-    if (step === 24) return "Go to Dashboard";
+    if (step === 21) return `Continue with ${selectedPlan === "free" ? "Free" : selectedPlan === "pro" ? "Pro" : "Forge"}`;
+    if (step === 23) return "Go to Dashboard";
     return "Continue";
   };
 
@@ -2222,7 +2257,7 @@ export default function OnboardingScreen() {
             {/* Content */}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingTop: step === 0 || step === 16 || step === 17 || step === 24 ? 0 : 32, paddingBottom: 32, flexGrow: step === 0 || step === 16 || step === 17 || step === 24 ? 1 : undefined }}
+                contentContainerStyle={{ paddingTop: step === 0 || step === 16 || step === 17 || step === 23 ? 0 : 32, paddingBottom: 32, flexGrow: step === 0 || step === 16 || step === 17 || step === 23 ? 1 : undefined }}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >

@@ -196,7 +196,7 @@ interface OnboardingState {
   resetOnboarding: () => void;
 }
 
-const TOTAL_STEPS = 25;
+const TOTAL_STEPS = 24;
 
 const createChildDraft = (index: number): OnboardingChild => ({
   id: `child-${index + 1}-${Date.now()}`,

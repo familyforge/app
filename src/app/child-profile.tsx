@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Calendar,
   ChevronRight,
+  Edit3,
 } from "lucide-react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useAppStore } from "../lib/state/app-store";
@@ -134,19 +135,19 @@ export default function ChildProfileScreen() {
       
       <SafeAreaView className="flex-1 bg-slate-900" edges={["bottom"]}>
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {/* Profile Header */}
+          {/* Profile Header - Centered */}
           <Animated.View
             entering={FadeInDown.duration(500)}
-            className="items-center pt-6 pb-8 px-6"
+            className="items-center pt-8 pb-8 px-6"
           >
             {child.picture ? (
               <Image
                 source={{ uri: child.picture }}
-                className="w-28 h-28 rounded-full mb-4 border-4 border-violet-500"
+                className="w-32 h-32 rounded-full mb-4 border-4 border-violet-500"
               />
             ) : (
-              <View className="w-28 h-28 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 items-center justify-center mb-4 border-4 border-violet-400">
-                <Text className="text-white text-4xl font-bold">{initials}</Text>
+              <View className="w-32 h-32 rounded-full bg-violet-600 items-center justify-center mb-4 border-4 border-violet-400">
+                <Text className="text-white text-5xl font-bold">{initials}</Text>
               </View>
             )}
             
@@ -374,6 +375,14 @@ export default function ChildProfileScreen() {
                   <Text className="text-white font-medium">Manage Learning</Text>
                 </View>
                 <ChevronRight size={20} color="#64748b" />
+              </Pressable>
+              
+              <Pressable
+                onPress={() => router.push("/(tabs)/children")}
+                className="bg-violet-600 rounded-2xl p-4 flex-row items-center justify-center gap-3"
+              >
+                <Edit3 size={20} color="#fff" />
+                <Text className="text-white font-semibold">Edit Profile</Text>
               </Pressable>
             </View>
           </Animated.View>

@@ -3165,11 +3165,46 @@ export default function LandingPage() {
                     </Text>
                   </View>
 
-                  {/* Arrow */}
+                  {/* Transformation Arrow */}
                   <View
-                    style={{ alignItems: "center", marginBottom: 16 }}
+                    style={{
+                      alignItems: "center",
+                      marginVertical: 6,
+                    }}
                   >
-                    <Text style={{ fontSize: 24 }}>⬇️</Text>
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: "rgba(139, 92, 246, 0.15)",
+                        borderWidth: 1.5,
+                        borderColor: "rgba(139, 92, 246, 0.35)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 2,
+                          height: 10,
+                          backgroundColor: "#8b5cf6",
+                          borderRadius: 1,
+                          marginBottom: -2,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 22,
+                          color: "#8b5cf6",
+                          fontWeight: "900",
+                          lineHeight: 24,
+                          marginTop: -2,
+                        }}
+                      >
+                        ↓
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Solution */}

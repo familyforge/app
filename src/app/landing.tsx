@@ -118,7 +118,9 @@ interface VideoTestimonial {
   name: string;
   role: string;
   thumbnailColor: string;
-  videoUrl: string;
+  thumbnailUrl: string; // Image URL for the thumbnail preview
+  videoUrl: string; // Direct video URL (Cloudinary, etc.) or YouTube video ID
+  isYouTube?: boolean; // Set to true if videoUrl is a YouTube video ID
 }
 
 // ============================================================
@@ -479,12 +481,76 @@ const FEATURES_GRID: FeatureGridItem[] = [
 // ============================================================
 
 const VIDEO_TESTIMONIALS: VideoTestimonial[] = [
-  { name: "Rachel H.", role: "Mum of 4, Bristol", thumbnailColor: "#f43f5e", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" },
-  { name: "Tom & Sarah W.", role: "Parents of 2, Edinburgh", thumbnailColor: "#3b82f6", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4" },
-  { name: "Priya K.", role: "Mum of 3, Leicester", thumbnailColor: "#8b5cf6", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4" },
-  { name: "Marcus D.", role: "Dad of 2, Cardiff", thumbnailColor: "#14b8a6", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" },
-  { name: "Jenny & Chris L.", role: "Co-parents, Glasgow", thumbnailColor: "#f59e0b", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4" },
-  { name: "Amira S.", role: "Mum of 3, Liverpool", thumbnailColor: "#ec4899", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" },
+  { 
+    name: "Rachel H.", 
+    role: "Mum of 4, Bristol", 
+    thumbnailColor: "#f43f5e", 
+    thumbnailUrl: require("../../assets/images/testimonials/rachel-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/rachel-video.mp4")
+  },
+  { 
+    name: "Tom & Sarah W.", 
+    role: "Parents of 2, Edinburgh", 
+    thumbnailColor: "#3b82f6", 
+    thumbnailUrl: require("../../assets/images/testimonials/tom-sarah-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/tom-sarah-video.mp4")
+  },
+  { 
+    name: "Priya K.", 
+    role: "Mum of 3, Leicester", 
+    thumbnailColor: "#8b5cf6", 
+    thumbnailUrl: require("../../assets/images/testimonials/priya-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/priya-video.mp4")
+  },
+  { 
+    name: "Marcus D.", 
+    role: "Dad of 2, Cardiff", 
+    thumbnailColor: "#14b8a6", 
+    thumbnailUrl: require("../../assets/images/testimonials/marcus-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/marcus-video.mp4")
+  },
+  { 
+    name: "Jenny L.", 
+    role: "Mum of 3, Glasgow", 
+    thumbnailColor: "#f59e0b", 
+    thumbnailUrl: require("../../assets/images/testimonials/jenny-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/jenny-video.mp4")
+  },
+  { 
+    name: "Chris & Amina S.", 
+    role: "Co-parents, Liverpool", 
+    thumbnailColor: "#ec4899", 
+    thumbnailUrl: require("../../assets/images/testimonials/chris-amina-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/chris-amina-video.mp4")
+  },
+  { 
+    name: "Emma R.", 
+    role: "Mum of 2, Birmingham", 
+    thumbnailColor: "#a855f7", 
+    thumbnailUrl: require("../../assets/images/testimonials/emma-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/emma-video.mp4")
+  },
+  { 
+    name: "David & Lisa T.", 
+    role: "Parents of 2, Leeds", 
+    thumbnailColor: "#06b6d4", 
+    thumbnailUrl: require("../../assets/images/testimonials/david-lisa-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/david-lisa-video.mp4")
+  },
+  { 
+    name: "Carlos M.", 
+    role: "Dad of 1, Manchester", 
+    thumbnailColor: "#f97316", 
+    thumbnailUrl: require("../../assets/images/testimonials/carlos-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/carlos-video.mp4")
+  },
+  { 
+    name: "James & Claire H.", 
+    role: "Parents of 3, London", 
+    thumbnailColor: "#84cc16", 
+    thumbnailUrl: require("../../assets/images/testimonials/james-claire-thumbnail.jpeg"),
+    videoUrl: require("../../assets/videos/testimonials/james-claire-video.mp4")
+  },
 ];
 
 // ============================================================
@@ -2241,11 +2307,21 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
               transform: [{ scale: pressed ? 0.97 : 1 }],
             })}
           >
+            {/* Thumbnail Image */}
+            <Image
+              source={item.thumbnailUrl}
+              style={{
+                position: "absolute",
+                width: "100%",
+                height: "100%",
+              }}
+              resizeMode="cover"
+            />
+            {/* Dark overlay */}
             <LinearGradient
               colors={[
-                `${item.thumbnailColor}40`,
-                `${item.thumbnailColor}15`,
-                "rgba(15, 10, 31, 0.95)",
+                "rgba(0, 0, 0, 0.1)",
+                "rgba(0, 0, 0, 0.5)",
               ]}
               style={{
                 flex: 1,
@@ -2254,20 +2330,25 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
                 padding: 16,
               }}
             >
+              {/* Play button */}
               <View
                 style={{
                   width: 60,
                   height: 60,
                   borderRadius: 30,
-                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: 16,
                   borderWidth: 2,
-                  borderColor: "rgba(255, 255, 255, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 1)",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
                 }}
               >
-                <Play size={24} color="#ffffff" fill="#ffffff" />
+                <Play size={24} color={item.thumbnailColor} fill={item.thumbnailColor} />
               </View>
               <View
                 style={{
@@ -2372,11 +2453,11 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
                   <X size={20} color="#ffffff" />
                 </Pressable>
 
-                {/* Video container - portrait 9:16 */}
+                {/* Video container - portrait 9:16 (medium size) */}
                 <div
                   style={{
-                    width: isWide ? 360 : "calc(100vw - 48px)",
-                    maxWidth: 400,
+                    width: isWide ? 280 : "calc(100vw - 80px)",
+                    maxWidth: 300,
                     aspectRatio: "9/16",
                     borderRadius: 24,
                     overflow: "hidden",
@@ -2385,19 +2466,35 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
                     background: "#000",
                   }}
                 >
-                  {/* @ts-ignore */}
-                  <video
-                    src={activeVideo.videoUrl}
-                    autoPlay
-                    controls
-                    playsInline
-                    onEnded={closeVideo}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
+                  {activeVideo.isYouTube ? (
+                    // YouTube iframe
+                    <iframe
+                      src={`https://www.youtube.com/embed/${activeVideo.videoUrl}?autoplay=1&rel=0&modestbranding=1`}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        border: "none",
+                      }}
+                    />
+                  ) : (
+                    // Direct video (Cloudinary, etc.)
+                    /* @ts-ignore */
+                    <video
+                      src={activeVideo.videoUrl}
+                      poster={activeVideo.thumbnailUrl}
+                      autoPlay
+                      controls
+                      playsInline
+                      onEnded={closeVideo}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* Name badge below video */}

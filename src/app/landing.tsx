@@ -2602,6 +2602,24 @@ export default function LandingPage() {
     }
   }, [device.isMobile, promptDismissed]);
 
+  // Inject CSS keyframes for animated arrow
+  useEffect(() => {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const id = "familyforge-arrow-anim";
+      if (!document.getElementById(id)) {
+        const style = document.createElement("style");
+        style.id = id;
+        style.textContent = `
+          @keyframes bounceArrow {
+            0%, 100% { transform: translateY(0); opacity: 0.7; }
+            50% { transform: translateY(8px); opacity: 1; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
+
   const handleGetStarted = useCallback(() => {
     router.push("/onboarding");
   }, []);
@@ -3165,46 +3183,45 @@ export default function LandingPage() {
                     </Text>
                   </View>
 
-                  {/* Transformation Arrow */}
+                  {/* Animated Transformation Arrow */}
                   <View
                     style={{
                       alignItems: "center",
-                      marginVertical: 6,
+                      marginVertical: 8,
                     }}
                   >
-                    <View
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
-                        backgroundColor: "rgba(139, 92, 246, 0.15)",
-                        borderWidth: 1.5,
-                        borderColor: "rgba(139, 92, 246, 0.35)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <View
+                    {Platform.OS === "web" ? (
+                      <div
                         style={{
-                          width: 2,
-                          height: 10,
-                          backgroundColor: "#8b5cf6",
-                          borderRadius: 1,
-                          marginBottom: -2,
-                        }}
-                      />
-                      <Text
-                        style={{
-                          fontSize: 22,
-                          color: "#8b5cf6",
-                          fontWeight: "900",
-                          lineHeight: 24,
-                          marginTop: -2,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          animation: "bounceArrow 1.4s ease-in-out infinite",
                         }}
                       >
-                        ↓
-                      </Text>
-                    </View>
+                        <div
+                          style={{
+                            width: 4,
+                            height: 18,
+                            borderRadius: 2,
+                            background:
+                              "linear-gradient(to bottom, rgba(139,92,246,0.2), #8b5cf6)",
+                          }}
+                        />
+                        <div
+                          style={{
+                            width: 0,
+                            height: 0,
+                            borderLeft: "14px solid transparent",
+                            borderRight: "14px solid transparent",
+                            borderTop: "16px solid #8b5cf6",
+                            marginTop: -1,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <Text style={{ fontSize: 28, color: "#8b5cf6", fontWeight: "900" }}>▼</Text>
+                    )}
                   </View>
 
                   {/* Solution */}

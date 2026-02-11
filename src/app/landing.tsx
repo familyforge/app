@@ -846,7 +846,7 @@ function FormModal({
         setPhone("");
         setEmail("");
         onClose();
-      }, 350);
+      }, 700);
     } else {
       setSubmitted(false);
       setFirstName("");
@@ -893,8 +893,8 @@ function FormModal({
               background: "rgba(0, 0, 0, 0.75)",
               backdropFilter: "blur(8px)",
               animation: closing
-                ? "fadeOutOverlay 0.35s ease forwards"
-                : "fadeInOverlay 0.3s ease forwards",
+                ? "fadeOutOverlay 0.7s ease forwards"
+                : "fadeInOverlay 0.5s ease forwards",
             }}
           />
         </Pressable>
@@ -918,8 +918,8 @@ function FormModal({
               style={{
                 transformOrigin: "top center",
                 animation: closing
-                  ? "flipOutToTop 0.35s ease forwards"
-                  : "flipInFromTop 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                  ? "flipOutToTop 0.7s ease forwards"
+                  : "flipInFromTop 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
                 width: isMobile ? "calc(100vw - 32px)" : 480,
                 maxWidth: 480,
               }}
@@ -2151,12 +2151,12 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
   const cardWidth = isWide ? 220 : 180;
   const cardGap = 16;
   const totalWidth = VIDEO_TESTIMONIALS.length * (cardWidth + cardGap);
-  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
-  const isPausedByUser = useRef(false);
+  const [activeVideo, setActiveVideo] = useState<VideoTestimonial | null>(null);
+  const [modalClosing, setModalClosing] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    if (playingIndex !== null) return; // pause scrolling while video plays
+    if (activeVideo) return; // pause scrolling while video modal is open
     const interval = setInterval(() => {
       scrollX.current += 1;
       if (scrollX.current >= totalWidth) {
@@ -2165,7 +2165,7 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
       scrollRef.current?.scrollTo({ x: scrollX.current, animated: false });
     }, 30);
     return () => clearInterval(interval);
-  }, [totalWidth, playingIndex]);
+  }, [totalWidth, activeVideo]);
 
   const duplicatedItems = [
     ...VIDEO_TESTIMONIALS,
@@ -2173,12 +2173,17 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
     ...VIDEO_TESTIMONIALS,
   ];
 
-  const handlePlay = (index: number) => {
-    if (playingIndex === index) {
-      setPlayingIndex(null);
-    } else {
-      setPlayingIndex(index);
-    }
+  const openVideo = (item: VideoTestimonial) => {
+    setModalClosing(false);
+    setActiveVideo(item);
+  };
+
+  const closeVideo = () => {
+    setModalClosing(true);
+    setTimeout(() => {
+      setActiveVideo(null);
+      setModalClosing(false);
+    }, 350);
   };
 
   return (
@@ -2222,103 +2227,227 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
         style={{ flexGrow: 0 }}
         contentContainerStyle={{ paddingHorizontal: 24, gap: cardGap }}
       >
-        {duplicatedItems.map((item, index) => {
-          const isPlaying = playingIndex === index;
-
-          return (
-            <Pressable
-              key={index}
-              onPress={() => handlePlay(index)}
-              style={({ pressed }) => ({
-                width: cardWidth,
-                aspectRatio: 9 / 16,
-                borderRadius: 20,
-                overflow: "hidden",
-                borderWidth: 2,
-                borderColor: isPlaying
-                  ? item.thumbnailColor
-                  : "rgba(139, 92, 246, 0.3)",
-                transform: [{ scale: pressed ? 0.97 : 1 }],
-              })}
+        {duplicatedItems.map((item, index) => (
+          <Pressable
+            key={index}
+            onPress={() => openVideo(item)}
+            style={({ pressed }) => ({
+              width: cardWidth,
+              aspectRatio: 9 / 16,
+              borderRadius: 20,
+              overflow: "hidden",
+              borderWidth: 2,
+              borderColor: "rgba(139, 92, 246, 0.3)",
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
+          >
+            <LinearGradient
+              colors={[
+                `${item.thumbnailColor}40`,
+                `${item.thumbnailColor}15`,
+                "rgba(15, 10, 31, 0.95)",
+              ]}
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+              }}
             >
-              {isPlaying && Platform.OS === "web" ? (
-                <View style={{ flex: 1, backgroundColor: "#000" }}>
+              <View
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 16,
+                  borderWidth: 2,
+                  borderColor: "rgba(255, 255, 255, 0.4)",
+                }}
+              >
+                <Play size={24} color="#ffffff" fill="#ffffff" />
+              </View>
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: 16,
+                }}
+              >
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.8)"]}
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 80,
+                  }}
+                />
+                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>
+                  {item.name}
+                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 }}>
+                  {item.role}
+                </Text>
+              </View>
+            </LinearGradient>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* Full Portrait Video Modal */}
+      {activeVideo && Platform.OS === "web" && (
+        <View
+          style={{
+            position: "absolute" as any,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+          }}
+        >
+          <Pressable
+            onPress={closeVideo}
+            style={{ position: "absolute" as any, top: 0, left: 0, right: 0, bottom: 0 }}
+          >
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "rgba(0, 0, 0, 0.85)",
+                backdropFilter: "blur(12px)",
+                animation: modalClosing
+                  ? "fadeOutOverlay 0.35s ease forwards"
+                  : "fadeInOverlay 0.3s ease forwards",
+              }}
+            />
+          </Pressable>
+
+          <View
+            style={{
+              position: "absolute" as any,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <div
+                style={{
+                  animation: modalClosing
+                    ? "fadeOutOverlay 0.35s ease forwards"
+                    : "fadeInOverlay 0.4s ease forwards",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                {/* Close button */}
+                <Pressable
+                  onPress={closeVideo}
+                  style={{
+                    position: "absolute",
+                    top: -48,
+                    right: 0,
+                    zIndex: 10,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.2)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <X size={20} color="#ffffff" />
+                </Pressable>
+
+                {/* Video container - portrait 9:16 */}
+                <div
+                  style={{
+                    width: isWide ? 360 : "calc(100vw - 48px)",
+                    maxWidth: 400,
+                    aspectRatio: "9/16",
+                    borderRadius: 24,
+                    overflow: "hidden",
+                    border: `2px solid ${activeVideo.thumbnailColor}60`,
+                    boxShadow: `0 0 60px ${activeVideo.thumbnailColor}30, 0 25px 50px rgba(0,0,0,0.5)`,
+                    background: "#000",
+                  }}
+                >
                   {/* @ts-ignore */}
                   <video
-                    src={item.videoUrl}
+                    src={activeVideo.videoUrl}
                     autoPlay
                     controls
                     playsInline
-                    onEnded={() => setPlayingIndex(null)}
+                    onEnded={closeVideo}
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
-                      borderRadius: 18,
                     }}
                   />
-                </View>
-              ) : (
-                <LinearGradient
-                  colors={[
-                    `${item.thumbnailColor}40`,
-                    `${item.thumbnailColor}15`,
-                    "rgba(15, 10, 31, 0.95)",
-                  ]}
+                </div>
+
+                {/* Name badge below video */}
+                <View
                   style={{
-                    flex: 1,
+                    flexDirection: "row",
                     alignItems: "center",
-                    justifyContent: "center",
-                    padding: 16,
+                    marginTop: 16,
+                    gap: 8,
                   }}
                 >
                   <View
                     style={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: 30,
-                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: activeVideo.thumbnailColor + "30",
                       alignItems: "center",
                       justifyContent: "center",
-                      marginBottom: 16,
-                      borderWidth: 2,
-                      borderColor: "rgba(255, 255, 255, 0.4)",
                     }}
                   >
-                    <Play size={24} color="#ffffff" fill="#ffffff" />
+                    <Text style={{ fontSize: 16 }}>
+                      {activeVideo.name.charAt(0)}
+                    </Text>
                   </View>
-                  <View
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      padding: 16,
-                    }}
-                  >
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.8)"]}
+                  <View>
+                    <Text
                       style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 80,
+                        color: "#ffffff",
+                        fontSize: 15,
+                        fontWeight: "800",
                       }}
-                    />
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>
-                      {item.name}
+                    >
+                      {activeVideo.name}
                     </Text>
-                    <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 }}>
-                      {item.role}
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.6)",
+                        fontSize: 12,
+                      }}
+                    >
+                      {activeVideo.role}
                     </Text>
                   </View>
-                </LinearGradient>
-              )}
+                </View>
+              </div>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

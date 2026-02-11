@@ -1007,13 +1007,22 @@ function FormModal({
                     </View>
                   ) : (
                     <>
-                      {/* Logo */}
-                      <View style={{ alignItems: "center", marginBottom: 20, marginTop: 4 }}>
+                      {/* Logo + Brand */}
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginBottom: 20,
+                          marginTop: 4,
+                          gap: 14,
+                        }}
+                      >
                         <View
                           style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: 16,
+                            width: 52,
+                            height: 52,
+                            borderRadius: 14,
                             overflow: "hidden",
                             borderWidth: 2,
                             borderColor: "rgba(139, 92, 246, 0.4)",
@@ -1021,10 +1030,21 @@ function FormModal({
                         >
                           <Image
                             source={require("../../assets/logo.png")}
-                            style={{ width: 56, height: 56 }}
+                            style={{ width: 52, height: 52 }}
                             resizeMode="cover"
                           />
                         </View>
+                        <Text
+                          style={{
+                            fontSize: isMobile ? 22 : 26,
+                            fontWeight: "900",
+                            color: "#ffffff",
+                            letterSpacing: -0.5,
+                          }}
+                        >
+                          Family
+                          <Text style={{ color: "#8b5cf6" }}>Forge</Text>
+                        </Text>
                       </View>
 
                       {/* Title */}
@@ -1317,11 +1337,16 @@ function FormModal({
                 </View>
               ) : (
                 <>
-                  <Image
-                    source={require("../../assets/logo.png")}
-                    style={{ width: 56, height: 56, borderRadius: 16, alignSelf: "center", marginBottom: 20, marginTop: 8 }}
-                    resizeMode="cover"
-                  />
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 20, marginTop: 8, gap: 12 }}>
+                    <Image
+                      source={require("../../assets/logo.png")}
+                      style={{ width: 52, height: 52, borderRadius: 14 }}
+                      resizeMode="cover"
+                    />
+                    <Text style={{ fontSize: 22, fontWeight: "900", color: "#ffffff" }}>
+                      Family<Text style={{ color: "#8b5cf6" }}>Forge</Text>
+                    </Text>
+                  </View>
                   <Text style={{ fontSize: 22, fontWeight: "900", color: "#ffffff", textAlign: "center", marginBottom: 6 }}>
                     {title}
                   </Text>
@@ -3675,7 +3700,45 @@ export default function LandingPage() {
                 }}
               >
                 Discover 10 Reasons Why{"\n"}Your Family{" "}
-                <Text style={{ color: "#8b5cf6" }}>NEEDS</Text>{" "}
+                <Text style={{ color: "#8b5cf6", position: "relative" }}>
+                  NEEDS
+                  {Platform.OS === "web" && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        bottom: -4,
+                        left: 0,
+                        right: 0,
+                        height: 8,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* @ts-ignore */}
+                      <svg
+                        width="100%"
+                        height="8"
+                        viewBox="0 0 120 8"
+                        preserveAspectRatio="none"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 5C20 2 40 7 60 4C80 1 100 6 118 3"
+                          stroke="#8b5cf6"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M2 6C20 3 40 8 60 5C80 2 100 7 118 4"
+                          stroke="#a78bfa"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          opacity="0.5"
+                        />
+                      </svg>
+                    </View>
+                  )}
+                </Text>{" "}
                 <Text style={{ color: "#8b5cf6" }}>FamilyForge</Text>
               </Text>
             </LinearGradient>

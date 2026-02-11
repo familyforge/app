@@ -816,269 +816,577 @@ function FormModal({
   title: string;
   subtitle: string;
 }) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 500;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
 
-  const handleSubmit = () => {
-    if (!firstName || !lastName || !phone || !email) return;
-    onSubmit({ firstName, lastName, phone, email });
-    setSubmitted(true);
-    setTimeout(() => {
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      setClosing(false);
+    }
+  }, [visible]);
+
+  const handleClose = useCallback(() => {
+    if (Platform.OS === "web") {
+      setClosing(true);
+      setTimeout(() => {
+        setShouldRender(false);
+        setClosing(false);
+        setSubmitted(false);
+        setFirstName("");
+        setLastName("");
+        setPhone("");
+        setEmail("");
+        onClose();
+      }, 350);
+    } else {
       setSubmitted(false);
       setFirstName("");
       setLastName("");
       setPhone("");
       setEmail("");
       onClose();
-    }, 2000);
+    }
+  }, [onClose]);
+
+  const handleSubmit = () => {
+    if (!firstName || !lastName || !phone || !email) return;
+    onSubmit({ firstName, lastName, phone, email });
+    setSubmitted(true);
+    setTimeout(() => {
+      handleClose();
+    }, 2200);
   };
 
-  const resetAndClose = () => {
-    setSubmitted(false);
-    setFirstName("");
-    setLastName("");
-    setPhone("");
-    setEmail("");
-    onClose();
-  };
+  if (!shouldRender && !visible) return null;
 
+  // Web version with flip animation
+  if (Platform.OS === "web") {
+    return (
+      <View
+        style={{
+          position: "absolute" as any,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+        }}
+      >
+        {/* Backdrop */}
+        <Pressable
+          onPress={handleClose}
+          style={{ position: "absolute" as any, top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(8px)",
+              animation: closing
+                ? "fadeOutOverlay 0.35s ease forwards"
+                : "fadeInOverlay 0.3s ease forwards",
+            }}
+          />
+        </Pressable>
+
+        {/* Form Card */}
+        <View
+          style={{
+            position: "absolute" as any,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: "flex-start",
+            alignItems: "center",
+            paddingTop: isMobile ? 40 : 80,
+            paddingHorizontal: isMobile ? 16 : 20,
+          }}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                transformOrigin: "top center",
+                animation: closing
+                  ? "flipOutToTop 0.35s ease forwards"
+                  : "flipInFromTop 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                width: isMobile ? "calc(100vw - 32px)" : 480,
+                maxWidth: 480,
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(145deg, #1e1744 0%, #151030 50%, #0f0a1f 100%)",
+                  borderRadius: 24,
+                  border: "1px solid rgba(139, 92, 246, 0.25)",
+                  boxShadow:
+                    "0 25px 60px rgba(0, 0, 0, 0.5), 0 0 80px rgba(139, 92, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+                  overflow: "hidden",
+                  position: "relative",
+                }}
+              >
+                {/* Top shimmer bar */}
+                <div
+                  style={{
+                    height: 3,
+                    background:
+                      "linear-gradient(90deg, transparent, #8b5cf6, #a78bfa, #8b5cf6, transparent)",
+                    backgroundSize: "200% 100%",
+                    animation: "shimmer 2s linear infinite",
+                  }}
+                />
+
+                <div style={{ padding: isMobile ? "24px 20px 28px" : "32px 36px 36px" }}>
+                  {/* Close button */}
+                  <Pressable
+                    onPress={handleClose}
+                    style={{
+                      position: "absolute",
+                      top: isMobile ? 16 : 20,
+                      right: isMobile ? 16 : 20,
+                      zIndex: 10,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: "rgba(255,255,255,0.06)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <X size={18} color="#94a3b8" />
+                  </Pressable>
+
+                  {submitted ? (
+                    <View style={{ alignItems: "center", paddingVertical: 48 }}>
+                      <View
+                        style={{
+                          width: 72,
+                          height: 72,
+                          borderRadius: 36,
+                          backgroundColor: "rgba(74, 222, 128, 0.15)",
+                          borderWidth: 2,
+                          borderColor: "rgba(74, 222, 128, 0.3)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginBottom: 20,
+                        }}
+                      >
+                        <Check size={36} color="#4ade80" />
+                      </View>
+                      <Text
+                        style={{
+                          color: "#ffffff",
+                          fontSize: 24,
+                          fontWeight: "900",
+                          textAlign: "center",
+                          letterSpacing: -0.5,
+                        }}
+                      >
+                        You're In! ✨
+                      </Text>
+                      <Text
+                        style={{
+                          color: "#94a3b8",
+                          fontSize: 15,
+                          textAlign: "center",
+                          marginTop: 10,
+                          lineHeight: 22,
+                        }}
+                      >
+                        We'll be in touch shortly.
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      {/* Logo */}
+                      <View style={{ alignItems: "center", marginBottom: 20, marginTop: 4 }}>
+                        <View
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: 16,
+                            overflow: "hidden",
+                            borderWidth: 2,
+                            borderColor: "rgba(139, 92, 246, 0.4)",
+                          }}
+                        >
+                          <Image
+                            source={require("../../assets/logo.png")}
+                            style={{ width: 56, height: 56 }}
+                            resizeMode="cover"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Title */}
+                      <Text
+                        style={{
+                          fontSize: isMobile ? 22 : 26,
+                          fontWeight: "900",
+                          color: "#ffffff",
+                          textAlign: "center",
+                          marginBottom: 6,
+                          letterSpacing: -0.5,
+                        }}
+                      >
+                        {title}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: isMobile ? 13 : 14,
+                          color: "#94a3b8",
+                          textAlign: "center",
+                          marginBottom: isMobile ? 24 : 28,
+                          lineHeight: 20,
+                        }}
+                      >
+                        {subtitle}
+                      </Text>
+
+                      {/* Name Row */}
+                      <View
+                        style={{
+                          flexDirection: isMobile ? "column" : "row",
+                          gap: 10,
+                          marginBottom: 10,
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              color: "#a78bfa",
+                              fontSize: 11,
+                              fontWeight: "700",
+                              letterSpacing: 0.8,
+                              marginBottom: 6,
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            First Name
+                          </Text>
+                          <TextInput
+                            placeholder="John"
+                            value={firstName}
+                            onChangeText={setFirstName}
+                            style={{
+                              borderWidth: 1.5,
+                              borderColor: "rgba(139, 92, 246, 0.2)",
+                              borderRadius: 14,
+                              paddingHorizontal: 16,
+                              paddingVertical: isMobile ? 14 : 15,
+                              fontSize: 15,
+                              color: "#ffffff",
+                              backgroundColor: "rgba(15, 10, 31, 0.7)",
+                            }}
+                            placeholderTextColor="#475569"
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              color: "#a78bfa",
+                              fontSize: 11,
+                              fontWeight: "700",
+                              letterSpacing: 0.8,
+                              marginBottom: 6,
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            Last Name
+                          </Text>
+                          <TextInput
+                            placeholder="Smith"
+                            value={lastName}
+                            onChangeText={setLastName}
+                            style={{
+                              borderWidth: 1.5,
+                              borderColor: "rgba(139, 92, 246, 0.2)",
+                              borderRadius: 14,
+                              paddingHorizontal: 16,
+                              paddingVertical: isMobile ? 14 : 15,
+                              fontSize: 15,
+                              color: "#ffffff",
+                              backgroundColor: "rgba(15, 10, 31, 0.7)",
+                            }}
+                            placeholderTextColor="#475569"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Email */}
+                      <View style={{ marginBottom: 10 }}>
+                        <Text
+                          style={{
+                            color: "#a78bfa",
+                            fontSize: 11,
+                            fontWeight: "700",
+                            letterSpacing: 0.8,
+                            marginBottom: 6,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Email Address
+                        </Text>
+                        <TextInput
+                          placeholder="you@example.com"
+                          value={email}
+                          onChangeText={setEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          style={{
+                            borderWidth: 1.5,
+                            borderColor: "rgba(139, 92, 246, 0.2)",
+                            borderRadius: 14,
+                            paddingHorizontal: 16,
+                            paddingVertical: isMobile ? 14 : 15,
+                            fontSize: 15,
+                            color: "#ffffff",
+                            backgroundColor: "rgba(15, 10, 31, 0.7)",
+                          }}
+                          placeholderTextColor="#475569"
+                        />
+                      </View>
+
+                      {/* Phone */}
+                      <View style={{ marginBottom: isMobile ? 24 : 28 }}>
+                        <Text
+                          style={{
+                            color: "#a78bfa",
+                            fontSize: 11,
+                            fontWeight: "700",
+                            letterSpacing: 0.8,
+                            marginBottom: 6,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Phone Number
+                        </Text>
+                        <TextInput
+                          placeholder="+44 7XXX XXXXXX"
+                          value={phone}
+                          onChangeText={setPhone}
+                          keyboardType="phone-pad"
+                          style={{
+                            borderWidth: 1.5,
+                            borderColor: "rgba(139, 92, 246, 0.2)",
+                            borderRadius: 14,
+                            paddingHorizontal: 16,
+                            paddingVertical: isMobile ? 14 : 15,
+                            fontSize: 15,
+                            color: "#ffffff",
+                            backgroundColor: "rgba(15, 10, 31, 0.7)",
+                          }}
+                          placeholderTextColor="#475569"
+                        />
+                      </View>
+
+                      {/* Submit Button */}
+                      <Pressable
+                        onPress={handleSubmit}
+                        style={({ pressed }) => ({
+                          transform: [{ scale: pressed ? 0.97 : 1 }],
+                        })}
+                      >
+                        <LinearGradient
+                          colors={["#8b5cf6", "#7c3aed", "#6d28d9"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={{
+                            paddingVertical: isMobile ? 16 : 18,
+                            borderRadius: 14,
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#fff",
+                              fontWeight: "900",
+                              fontSize: isMobile ? 15 : 17,
+                              letterSpacing: 1.5,
+                            }}
+                          >
+                            CONTINUE →
+                          </Text>
+                        </LinearGradient>
+                      </Pressable>
+
+                      {/* Trust line */}
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginTop: 16,
+                          gap: 6,
+                        }}
+                      >
+                        <Shield size={13} color="#4ade80" />
+                        <Text
+                          style={{
+                            color: "#64748b",
+                            fontSize: 11,
+                            letterSpacing: 0.3,
+                          }}
+                        >
+                          We respect your privacy. No spam, ever.
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Native fallback (iOS / Android)
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
-      onRequestClose={resetAndClose}
+      animationType="slide"
+      onRequestClose={handleClose}
     >
       <Pressable
-        onPress={resetAndClose}
+        onPress={handleClose}
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.7)",
-          justifyContent: "center",
+          backgroundColor: "rgba(0,0,0,0.75)",
+          justifyContent: "flex-start",
           alignItems: "center",
-          padding: 20,
+          paddingTop: 60,
+          paddingHorizontal: 16,
         }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ width: "100%", maxWidth: 440 }}
         >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: "#1a1f38",
-              borderRadius: 20,
-              padding: 28,
-              width: "100%",
-              maxWidth: 440,
-              borderWidth: 1,
-              borderColor: "rgba(139, 92, 246, 0.3)",
-              shadowColor: "#8b5cf6",
-              shadowOffset: { width: 0, height: 20 },
-              shadowOpacity: 0.3,
-              shadowRadius: 40,
-              elevation: 20,
-            }}
-          >
-            {/* Top gradient bar */}
+          <Pressable onPress={(e) => e.stopPropagation()}>
             <LinearGradient
-              colors={["#8b5cf6", "#6366f1"]}
+              colors={["#1e1744", "#151030", "#0f0a1f"]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
               style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 4,
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
+                borderRadius: 24,
+                padding: 24,
+                borderWidth: 1,
+                borderColor: "rgba(139, 92, 246, 0.25)",
               }}
-            />
-
-            <Pressable
-              onPress={resetAndClose}
-              style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
             >
-              <X size={24} color="#64748b" />
-            </Pressable>
+              <Pressable
+                onPress={handleClose}
+                style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
+              >
+                <X size={18} color="#94a3b8" />
+              </Pressable>
 
-            {submitted ? (
-              <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                <View
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 30,
-                    backgroundColor: "rgba(74, 222, 128, 0.2)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 16,
-                  }}
-                >
-                  <Check size={32} color="#4ade80" />
-                </View>
-                <Text
-                  style={{
-                    color: "#ffffff",
-                    fontSize: 22,
-                    fontWeight: "900",
-                    textAlign: "center",
-                  }}
-                >
-                  Thank You! ✨
-                </Text>
-                <Text
-                  style={{
-                    color: "#94a3b8",
-                    fontSize: 15,
-                    textAlign: "center",
-                    marginTop: 8,
-                  }}
-                >
-                  We'll be in touch shortly.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Image
-                  source={require("../../assets/logo.png")}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    alignSelf: "center",
-                    marginBottom: 16,
-                    marginTop: 8,
-                  }}
-                  resizeMode="cover"
-                />
-                <Text
-                  style={{
-                    fontSize: 22,
-                    fontWeight: "900",
-                    color: "#ffffff",
-                    textAlign: "center",
-                    marginBottom: 6,
-                  }}
-                >
-                  {title}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: "#94a3b8",
-                    textAlign: "center",
-                    marginBottom: 24,
-                  }}
-                >
-                  {subtitle}
-                </Text>
-
-                <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
-                  <TextInput
-                    placeholder="First Name"
-                    value={firstName}
-                    onChangeText={setFirstName}
+              {submitted ? (
+                <View style={{ alignItems: "center", paddingVertical: 48 }}>
+                  <View
                     style={{
-                      flex: 1,
-                      borderWidth: 1.5,
-                      borderColor: "rgba(139, 92, 246, 0.3)",
-                      borderRadius: 12,
-                      padding: 14,
-                      fontSize: 15,
-                      color: "#ffffff",
-                      backgroundColor: "rgba(30, 25, 50, 0.6)",
-                    }}
-                    placeholderTextColor="#64748b"
-                  />
-                  <TextInput
-                    placeholder="Last Name"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    style={{
-                      flex: 1,
-                      borderWidth: 1.5,
-                      borderColor: "rgba(139, 92, 246, 0.3)",
-                      borderRadius: 12,
-                      padding: 14,
-                      fontSize: 15,
-                      color: "#ffffff",
-                      backgroundColor: "rgba(30, 25, 50, 0.6)",
-                    }}
-                    placeholderTextColor="#64748b"
-                  />
-                </View>
-
-                <TextInput
-                  placeholder="Email Address"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={{
-                    borderWidth: 1.5,
-                    borderColor: "rgba(139, 92, 246, 0.3)",
-                    borderRadius: 12,
-                    padding: 14,
-                    fontSize: 15,
-                    color: "#ffffff",
-                    marginBottom: 12,
-                    backgroundColor: "rgba(30, 25, 50, 0.6)",
-                  }}
-                  placeholderTextColor="#64748b"
-                />
-
-                <TextInput
-                  placeholder="Phone Number"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  style={{
-                    borderWidth: 1.5,
-                    borderColor: "rgba(139, 92, 246, 0.3)",
-                    borderRadius: 12,
-                    padding: 14,
-                    fontSize: 15,
-                    color: "#ffffff",
-                    marginBottom: 24,
-                    backgroundColor: "rgba(30, 25, 50, 0.6)",
-                  }}
-                  placeholderTextColor="#64748b"
-                />
-
-                <Pressable
-                  onPress={handleSubmit}
-                  style={({ pressed }) => ({
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                  })}
-                >
-                  <LinearGradient
-                    colors={["#8b5cf6", "#6366f1", "#4f46e5"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      paddingVertical: 16,
-                      borderRadius: 12,
+                      width: 72,
+                      height: 72,
+                      borderRadius: 36,
+                      backgroundColor: "rgba(74, 222, 128, 0.15)",
                       alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 20,
                     }}
                   >
-                    <Text
-                      style={{
-                        color: "#fff",
-                        fontWeight: "900",
-                        fontSize: 16,
-                        letterSpacing: 1,
-                      }}
+                    <Check size={36} color="#4ade80" />
+                  </View>
+                  <Text style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", textAlign: "center" }}>
+                    You're In! ✨
+                  </Text>
+                  <Text style={{ color: "#94a3b8", fontSize: 15, textAlign: "center", marginTop: 10 }}>
+                    We'll be in touch shortly.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Image
+                    source={require("../../assets/logo.png")}
+                    style={{ width: 56, height: 56, borderRadius: 16, alignSelf: "center", marginBottom: 20, marginTop: 8 }}
+                    resizeMode="cover"
+                  />
+                  <Text style={{ fontSize: 22, fontWeight: "900", color: "#ffffff", textAlign: "center", marginBottom: 6 }}>
+                    {title}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", marginBottom: 24 }}>
+                    {subtitle}
+                  </Text>
+
+                  <View style={{ gap: 10, marginBottom: 10 }}>
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      <TextInput
+                        placeholder="First Name"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        style={{ flex: 1, borderWidth: 1.5, borderColor: "rgba(139,92,246,0.2)", borderRadius: 14, padding: 14, fontSize: 15, color: "#fff", backgroundColor: "rgba(15,10,31,0.7)" }}
+                        placeholderTextColor="#475569"
+                      />
+                      <TextInput
+                        placeholder="Last Name"
+                        value={lastName}
+                        onChangeText={setLastName}
+                        style={{ flex: 1, borderWidth: 1.5, borderColor: "rgba(139,92,246,0.2)", borderRadius: 14, padding: 14, fontSize: 15, color: "#fff", backgroundColor: "rgba(15,10,31,0.7)" }}
+                        placeholderTextColor="#475569"
+                      />
+                    </View>
+                    <TextInput
+                      placeholder="Email Address"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      style={{ borderWidth: 1.5, borderColor: "rgba(139,92,246,0.2)", borderRadius: 14, padding: 14, fontSize: 15, color: "#fff", backgroundColor: "rgba(15,10,31,0.7)" }}
+                      placeholderTextColor="#475569"
+                    />
+                    <TextInput
+                      placeholder="Phone Number"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      style={{ borderWidth: 1.5, borderColor: "rgba(139,92,246,0.2)", borderRadius: 14, padding: 14, fontSize: 15, color: "#fff", backgroundColor: "rgba(15,10,31,0.7)", marginBottom: 14 }}
+                      placeholderTextColor="#475569"
+                    />
+                  </View>
+
+                  <Pressable onPress={handleSubmit} style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
+                    <LinearGradient
+                      colors={["#8b5cf6", "#7c3aed", "#6d28d9"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={{ paddingVertical: 16, borderRadius: 14, alignItems: "center" }}
                     >
-                      CONTINUE →
+                      <Text style={{ color: "#fff", fontWeight: "900", fontSize: 15, letterSpacing: 1.5 }}>
+                        CONTINUE →
+                      </Text>
+                    </LinearGradient>
+                  </Pressable>
+
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 16, gap: 6 }}>
+                    <Shield size={13} color="#4ade80" />
+                    <Text style={{ color: "#64748b", fontSize: 11 }}>
+                      We respect your privacy. No spam, ever.
                     </Text>
-                  </LinearGradient>
-                </Pressable>
-              </>
-            )}
+                  </View>
+                </>
+              )}
+            </LinearGradient>
           </Pressable>
         </KeyboardAvoidingView>
       </Pressable>
@@ -2613,6 +2921,49 @@ export default function LandingPage() {
           @keyframes bounceArrow {
             0%, 100% { transform: translateY(0); opacity: 0.7; }
             50% { transform: translateY(8px); opacity: 1; }
+          }
+          @keyframes flipInFromTop {
+            0% {
+              transform: perspective(800px) rotateX(-90deg) translateY(-60px);
+              opacity: 0;
+            }
+            40% {
+              transform: perspective(800px) rotateX(10deg) translateY(0);
+              opacity: 1;
+            }
+            70% {
+              transform: perspective(800px) rotateX(-5deg);
+            }
+            100% {
+              transform: perspective(800px) rotateX(0deg);
+              opacity: 1;
+            }
+          }
+          @keyframes flipOutToTop {
+            0% {
+              transform: perspective(800px) rotateX(0deg);
+              opacity: 1;
+            }
+            100% {
+              transform: perspective(800px) rotateX(-90deg) translateY(-60px);
+              opacity: 0;
+            }
+          }
+          @keyframes fadeInOverlay {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+          }
+          @keyframes fadeOutOverlay {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          @keyframes inputFocusGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+            50% { box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); }
           }
         `;
         document.head.appendChild(style);

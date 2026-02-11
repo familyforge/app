@@ -118,6 +118,7 @@ interface VideoTestimonial {
   name: string;
   role: string;
   thumbnailColor: string;
+  videoUrl: string;
 }
 
 // ============================================================
@@ -478,12 +479,12 @@ const FEATURES_GRID: FeatureGridItem[] = [
 // ============================================================
 
 const VIDEO_TESTIMONIALS: VideoTestimonial[] = [
-  { name: "Rachel H.", role: "Mum of 4, Bristol", thumbnailColor: "#f43f5e" },
-  { name: "Tom & Sarah W.", role: "Parents of 2, Edinburgh", thumbnailColor: "#3b82f6" },
-  { name: "Priya K.", role: "Mum of 3, Leicester", thumbnailColor: "#8b5cf6" },
-  { name: "Marcus D.", role: "Dad of 2, Cardiff", thumbnailColor: "#14b8a6" },
-  { name: "Jenny & Chris L.", role: "Co-parents, Glasgow", thumbnailColor: "#f59e0b" },
-  { name: "Amira S.", role: "Mum of 3, Liverpool", thumbnailColor: "#ec4899" },
+  { name: "Rachel H.", role: "Mum of 4, Bristol", thumbnailColor: "#f43f5e", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" },
+  { name: "Tom & Sarah W.", role: "Parents of 2, Edinburgh", thumbnailColor: "#3b82f6", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4" },
+  { name: "Priya K.", role: "Mum of 3, Leicester", thumbnailColor: "#8b5cf6", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4" },
+  { name: "Marcus D.", role: "Dad of 2, Cardiff", thumbnailColor: "#14b8a6", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" },
+  { name: "Jenny & Chris L.", role: "Co-parents, Glasgow", thumbnailColor: "#f59e0b", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4" },
+  { name: "Amira S.", role: "Mum of 3, Liverpool", thumbnailColor: "#ec4899", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" },
 ];
 
 // ============================================================
@@ -2150,9 +2151,12 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
   const cardWidth = isWide ? 220 : 180;
   const cardGap = 16;
   const totalWidth = VIDEO_TESTIMONIALS.length * (cardWidth + cardGap);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const isPausedByUser = useRef(false);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
+    if (playingIndex !== null) return; // pause scrolling while video plays
     const interval = setInterval(() => {
       scrollX.current += 1;
       if (scrollX.current >= totalWidth) {
@@ -2161,13 +2165,21 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
       scrollRef.current?.scrollTo({ x: scrollX.current, animated: false });
     }, 30);
     return () => clearInterval(interval);
-  }, [totalWidth]);
+  }, [totalWidth, playingIndex]);
 
   const duplicatedItems = [
     ...VIDEO_TESTIMONIALS,
     ...VIDEO_TESTIMONIALS,
     ...VIDEO_TESTIMONIALS,
   ];
+
+  const handlePlay = (index: number) => {
+    if (playingIndex === index) {
+      setPlayingIndex(null);
+    } else {
+      setPlayingIndex(index);
+    }
+  };
 
   return (
     <View
@@ -2210,76 +2222,102 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
         style={{ flexGrow: 0 }}
         contentContainerStyle={{ paddingHorizontal: 24, gap: cardGap }}
       >
-        {duplicatedItems.map((item, index) => (
-          <Pressable
-            key={index}
-            style={({ pressed }) => ({
-              width: cardWidth,
-              aspectRatio: 9 / 16,
-              borderRadius: 20,
-              overflow: "hidden",
-              borderWidth: 2,
-              borderColor: "rgba(139, 92, 246, 0.3)",
-              transform: [{ scale: pressed ? 0.97 : 1 }],
-            })}
-          >
-            <LinearGradient
-              colors={[
-                `${item.thumbnailColor}40`,
-                `${item.thumbnailColor}15`,
-                "rgba(15, 10, 31, 0.95)",
-              ]}
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 16,
-              }}
+        {duplicatedItems.map((item, index) => {
+          const isPlaying = playingIndex === index;
+
+          return (
+            <Pressable
+              key={index}
+              onPress={() => handlePlay(index)}
+              style={({ pressed }) => ({
+                width: cardWidth,
+                aspectRatio: 9 / 16,
+                borderRadius: 20,
+                overflow: "hidden",
+                borderWidth: 2,
+                borderColor: isPlaying
+                  ? item.thumbnailColor
+                  : "rgba(139, 92, 246, 0.3)",
+                transform: [{ scale: pressed ? 0.97 : 1 }],
+              })}
             >
-              <View
-                style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 30,
-                  backgroundColor: "rgba(255, 255, 255, 0.2)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 16,
-                  borderWidth: 2,
-                  borderColor: "rgba(255, 255, 255, 0.4)",
-                }}
-              >
-                <Play size={24} color="#ffffff" fill="#ffffff" />
-              </View>
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: 16,
-                }}
-              >
+              {isPlaying && Platform.OS === "web" ? (
+                <View style={{ flex: 1, backgroundColor: "#000" }}>
+                  {/* @ts-ignore */}
+                  <video
+                    src={item.videoUrl}
+                    autoPlay
+                    controls
+                    playsInline
+                    onEnded={() => setPlayingIndex(null)}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      borderRadius: 18,
+                    }}
+                  />
+                </View>
+              ) : (
                 <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.8)"]}
+                  colors={[
+                    `${item.thumbnailColor}40`,
+                    `${item.thumbnailColor}15`,
+                    "rgba(15, 10, 31, 0.95)",
+                  ]}
                   style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 80,
+                    flex: 1,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 16,
                   }}
-                />
-                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>
-                  {item.name}
-                </Text>
-                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 }}>
-                  {item.role}
-                </Text>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        ))}
+                >
+                  <View
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30,
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                      borderWidth: 2,
+                      borderColor: "rgba(255, 255, 255, 0.4)",
+                    }}
+                  >
+                    <Play size={24} color="#ffffff" fill="#ffffff" />
+                  </View>
+                  <View
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: 16,
+                    }}
+                  >
+                    <LinearGradient
+                      colors={["transparent", "rgba(0,0,0,0.8)"]}
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 80,
+                      }}
+                    />
+                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 }}>
+                      {item.role}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              )}
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );

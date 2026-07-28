@@ -88,7 +88,10 @@ Add the API key to Supabase Project Settings:
 3. Navigate to **Project Settings → Edge Functions → Secrets**
 4. Add secret:
    - Name: `RESEND_API_KEY`
-   - Value: `re_N7EV6471_5Nx2kTvijYq98MwVtDxCUGWb`
+   - Value: your Resend API key from https://resend.com/api-keys
+
+> **Never paste the actual key into this file or any other tracked file.** This
+> repository is public. Secrets belong in Supabase Edge Function secrets only.
 
 ### 2. Verify Domain (Production)
 

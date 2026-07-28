@@ -1,7 +1,13 @@
 // Test sending FamilyForge branded emails via Resend
-// Run with: node test-branded-email.js
+// Run with: RESEND_API_KEY=re_xxx node test-branded-email.js
+// (or put RESEND_API_KEY in .env, which is gitignored)
 
-const RESEND_API_KEY = 're_N7EV6471_5Nx2kTvijYq98MwVtDxCUGWb';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+
+if (!RESEND_API_KEY) {
+  console.error('Missing RESEND_API_KEY. Run: RESEND_API_KEY=re_xxx node test-branded-email.js');
+  process.exit(1);
+}
 
 // Brand configuration
 const BRAND = {

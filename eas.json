@@ -13,6 +13,14 @@
       }
     }
   },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6758824419",
+        "appleTeamId": "VF3542MNWH"
+      }
+    }
+  },
   "cli": {
     "appVersionSource": "remote"
   }

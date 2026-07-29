@@ -19,6 +19,8 @@ export interface Child {
   academicYear?: number; // 1-13 for UK school years
   points: number;
   rewards: string[]; // Array of redeemed reward IDs
+  /** What this child calls their main caregiver. Drives all Kids-app copy. */
+  caregiverLabel?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +35,10 @@ export interface Parent {
 
 export type TaskType = "chore" | "exercise" | "personal_care";
 export type TaskCategory = "chore" | "personal_care" | "exercise" | "learning" | "social" | "creative" | "other";
-export type TaskStatus = "pending" | "completed" | "skipped";
+// "pending_approval" is what a child sets by tapping "I did it!". It is not yet
+// completed and awards no points until a parent approves — so children get
+// agency over their own tasks while parents keep the final say.
+export type TaskStatus = "pending" | "pending_approval" | "completed" | "skipped";
 
 export interface Task {
   id: string;
@@ -51,6 +56,13 @@ export interface Task {
   endTime?: string | null; // HH:mm format for task end time (auto-miss if not completed by this time)
   createdAt: string;
   completedAt?: string | null;
+  /** When the child submitted it for approval. */
+  submittedAt?: string | null;
+  /**
+   * What the child calls whoever set this task — "Dad", "Nanny", "Grandad".
+   * Snapshotted at creation so attribution survives later changes.
+   */
+  assignedByLabel?: string | null;
 }
 
 export interface Reward {

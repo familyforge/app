@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Child, Parent, Task, Reward, Exercise, Report, Settings, TaskCategory } from "../types";
+import { recordStreakActivity } from "../api/streaks";
 
 // Helper to generate UUID-like IDs (valid UUID format)
 const generateId = () =>
@@ -84,6 +85,12 @@ interface AppState {
   
   // Actions - Children
   addChild: (input: AddChildInput) => void;
+  /**
+   * Replace local state with a single child's own data, for the child app.
+   * The child app has exactly one child in scope — themselves — so this
+   * overwrites rather than merges.
+   */
+  hydrateChildSession: (child: Child, tasks: Task[]) => void;
   updateChild: (id: string, updates: Partial<Child>) => void;
   removeChild: (id: string) => void;
   selectChild: (id: string | null) => void;
@@ -94,7 +101,13 @@ interface AppState {
   removeTask: (id: string) => void;
   completeTask: (id: string) => void;
   missTask: (id: string) => void;
-  
+  /** Child marks a task done — awaits parent approval, awards no points yet. */
+  submitTaskForApproval: (id: string) => void;
+  /** Parent approves a submitted task: completes it and awards the points. */
+  approveTask: (id: string) => void;
+  /** Parent sends it back — returns to pending so the child can redo it. */
+  rejectTask: (id: string) => void;
+
   // Actions - Exercises
   addExercise: (exercise: Exercise) => void;
   updateExercise: (id: string, updates: Partial<Exercise>) => void;
@@ -203,6 +216,14 @@ export const useAppStore = create<AppState>()(
       })),
       
       selectChild: (id) => set({ selectedChildId: id }),
+
+      hydrateChildSession: (child, tasks) =>
+        set({
+          children: [child],
+          tasks,
+          selectedChildId: child.id,
+          isChildMode: true,
+        }),
       
       // Task actions
       addTask: (input) => {
@@ -235,7 +256,16 @@ export const useAppStore = create<AppState>()(
         const task = get().tasks.find((t) => t.id === id);
         if (!task) return;
         if (task.status === 'completed') return;
-        
+
+        // Advance the task-completion streak. Fire-and-forget: recordStreakActivity
+        // never throws and is a no-op after the first call each day, so completing
+        // a task must never wait on (or fail because of) the network.
+        const streakChild = task.childId
+          ? get().children.find((c) => c.id === task.childId)
+          : undefined;
+        void recordStreakActivity('task_completion', { childName: streakChild?.name });
+
+
         set((state) => ({
           tasks: state.tasks.map((t) =>
             t.id === id
@@ -253,6 +283,49 @@ export const useAppStore = create<AppState>()(
                 points: c.points + Math.floor(task.points / state.children.length),
                 updatedAt: new Date().toISOString(),
               })),
+        }));
+      },
+
+      // --- Child-submitted completion -------------------------------------
+      // Children are otherwise view-only, which leaves every action to the
+      // parent. These three let a child claim a task and a parent confirm it,
+      // so the child gets agency while the parent keeps the final say over points.
+
+      submitTaskForApproval: (id) => {
+        const task = get().tasks.find((t) => t.id === id);
+        if (!task) return;
+        // Only an outstanding task can be claimed; never re-open a completed one.
+        if (task.status !== 'pending' && task.status !== 'skipped') return;
+
+        set((state) => ({
+          tasks: state.tasks.map((t) =>
+            t.id === id
+              ? { ...t, status: 'pending_approval' as const, submittedAt: new Date().toISOString() }
+              : t
+          ),
+        }));
+      },
+
+      approveTask: (id) => {
+        const task = get().tasks.find((t) => t.id === id);
+        if (!task) return;
+        if (task.status !== 'pending_approval') return;
+        // Points are awarded here, not on submission, so a child cannot award
+        // themselves anything. completeTask holds the identical award logic.
+        get().completeTask(id);
+      },
+
+      rejectTask: (id) => {
+        const task = get().tasks.find((t) => t.id === id);
+        if (!task) return;
+        if (task.status !== 'pending_approval') return;
+
+        set((state) => ({
+          tasks: state.tasks.map((t) =>
+            t.id === id
+              ? { ...t, status: 'pending' as const, submittedAt: null }
+              : t
+          ),
         }));
       },
 

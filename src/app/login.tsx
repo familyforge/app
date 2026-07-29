@@ -1,5 +1,5 @@
 // FamilyForge App - Login Screen (PIN-based authentication)
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
-import { Mail, LogIn } from 'lucide-react-native';
+import { Mail, LogIn, ArrowLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuth } from '../lib/api';
+import { PinInput } from '../components/PinInput';
 import { useOnboardingStore } from '../lib/state/onboarding-store';
 import { theme } from '../lib/theme';
 
@@ -43,40 +44,12 @@ export default function LoginScreen() {
   const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   
   const [email, setEmail] = useState('');
-  const [pin, setPin] = useState(['', '', '', '', '', '']);
+  const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-  
-  const pinInputRefs = useRef<(TextInput | null)[]>([]);
-
-  const handlePinChange = (value: string, index: number) => {
-    // Only allow digits
-    const digit = value.replace(/[^0-9]/g, '').slice(-1);
-    
-    const newPin = [...pin];
-    newPin[index] = digit;
-    setPin(newPin);
-    
-    // Auto-advance to next input
-    if (digit && index < 5) {
-      pinInputRefs.current[index + 1]?.focus();
-    }
-    
-    // If deleting and empty, go back
-    if (!digit && index > 0 && !value) {
-      pinInputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePinKeyPress = (e: { nativeEvent: { key: string } }, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !pin[index] && index > 0) {
-      pinInputRefs.current[index - 1]?.focus();
-    }
-  };
 
   const handleLogin = async () => {
-    const pinString = pin.join('');
-    
+    const pinString = pin;
+
     if (!email) {
       setError('Please enter your email address');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -100,8 +73,7 @@ export default function LoginScreen() {
       setError(result.error ?? 'Invalid email or PIN');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       // Clear PIN on error
-      setPin(['', '', '', '', '', '']);
-      pinInputRefs.current[0]?.focus();
+      setPin('');
     }
   };
 
@@ -114,7 +86,7 @@ export default function LoginScreen() {
     router.push('/onboarding');
   };
 
-  const isPinComplete = pin.every((digit) => digit !== '');
+  const isPinComplete = pin.length === 6;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -137,6 +109,27 @@ export default function LoginScreen() {
               bottomOffset={50}
             >
               <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 32 }}>
+                {/* Escape hatch. Someone who reaches this screen by mistake --
+                    from onboarding, or after signing out -- otherwise has no way
+                    out but to force-quit. */}
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    if (router.canGoBack()) router.back();
+                    else router.replace('/');
+                  }}
+                  hitSlop={12}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 7,
+                    alignSelf: 'flex-start', marginBottom: 20,
+                    paddingVertical: 9, paddingHorizontal: 14, borderRadius: 16,
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <ArrowLeft size={18} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textSecondary, fontSize: 15, fontWeight: '600' }}>Back</Text>
+                </Pressable>
+
                 {/* Header */}
                 <Animated.View 
                   entering={FadeInDown.duration(600)} 
@@ -193,45 +186,17 @@ export default function LoginScreen() {
                     <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 8, marginLeft: 4 }}>
                       6-Digit PIN
                     </Text>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                      {pin.map((digit, index) => (
-                        <View 
-                          key={index}
-                          style={{ 
-                            flex: 1,
-                            aspectRatio: 1,
-                            maxWidth: 52,
-                            backgroundColor: colors.surfaceElevated, 
-                            borderRadius: 14, 
-                            borderWidth: 2,
-                            borderColor: focusedIndex === index ? colors.purple : digit ? colors.teal : colors.border,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <TextInput
-                            ref={(ref) => { pinInputRefs.current[index] = ref; }}
-                            style={{ 
-                              width: '100%',
-                              height: '100%',
-                              color: colors.textPrimary, 
-                              fontSize: 24, 
-                              fontWeight: '700',
-                              textAlign: 'center',
-                            }}
-                            value={digit}
-                            onChangeText={(value) => handlePinChange(value, index)}
-                            onKeyPress={(e) => handlePinKeyPress(e, index)}
-                            onFocus={() => setFocusedIndex(index)}
-                            onBlur={() => setFocusedIndex(null)}
-                            keyboardType="number-pad"
-                            maxLength={1}
-                            selectTextOnFocus
-                            secureTextEntry
-                          />
-                        </View>
-                      ))}
-                    </View>
+                    <PinInput
+                      value={pin}
+                      onChange={setPin}
+                      masked
+                      activeColor={colors.purple}
+                      filledColor={colors.teal}
+                      boxBackground={colors.surfaceElevated}
+                      borderColor={colors.border}
+                      textColor={colors.textPrimary}
+                      boxHeight={52}
+                    />
                   </View>
 
                   {/* Forgot PIN */}

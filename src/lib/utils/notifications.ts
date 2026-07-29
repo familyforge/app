@@ -114,12 +114,23 @@ if (Platform.OS !== 'web') {
   });
 }
 
-// Request notification permissions
-export async function requestNotificationPermissions(): Promise<boolean> {
+/**
+ * Check notification permission, optionally prompting for it.
+ *
+ * `promptIfNeeded: false` checks silently and never shows the system dialog.
+ * That matters because iOS shows this prompt exactly ONCE per install — once
+ * denied, the only route back is the Settings app. Background callers that run
+ * on every launch must therefore never trigger it; only a deliberate,
+ * well-timed moment should prompt.
+ */
+export async function requestNotificationPermissions(
+  { promptIfNeeded = true }: { promptIfNeeded?: boolean } = {}
+): Promise<boolean> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== 'granted') {
+    if (!promptIfNeeded) return false;
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
@@ -437,7 +448,11 @@ export async function scheduleAllNotifications(params: {
   notifications: NotificationSettings;
 }): Promise<void> {
   if (Platform.OS === 'web') return;
-  const hasPermission = await requestNotificationPermissions();
+  // Check only — never prompt. This runs on every app launch from the root
+  // layout, so prompting here fired the one-shot iOS dialog at cold start on
+  // step 0 of onboarding, before reminders had been explained. The deliberate
+  // request now happens when onboarding completes.
+  const hasPermission = await requestNotificationPermissions({ promptIfNeeded: false });
   if (!hasPermission) return;
 
   if (params.notifications.taskReminders) {

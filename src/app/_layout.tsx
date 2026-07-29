@@ -20,6 +20,15 @@ import {
   PlusJakartaSans_600SemiBold,
   PlusJakartaSans_700Bold,
 } from "@expo-google-fonts/plus-jakarta-sans";
+// Display face for the Kids app. Baloo's rounded, chunky terminals read as
+// playful without tipping into the comic-book look, and it stays legible at the
+// large sizes a child-facing screen leans on.
+import {
+  Baloo2_500Medium,
+  Baloo2_600SemiBold,
+  Baloo2_700Bold,
+  Baloo2_800ExtraBold,
+} from "@expo-google-fonts/baloo-2";
 import * as SplashScreen from "expo-splash-screen";
 import { useAppStore } from "../lib/state/app-store";
 import { useProfileStore } from "../lib/state/profile-store";
@@ -144,6 +153,24 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
+          name="child-link"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="child-about"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="child-rewards"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="child-profile"
           options={{
             headerShown: true,
@@ -215,6 +242,10 @@ export default function RootLayout() {
     PlusJakartaSans_500Medium,
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
+    Baloo2_500Medium,
+    Baloo2_600SemiBold,
+    Baloo2_700Bold,
+    Baloo2_800ExtraBold,
   });
 
   useEffect(() => {

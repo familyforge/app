@@ -42,7 +42,8 @@
     "node_modules",
     "babel.config.js",
     "metro.config.js",
-    "admin/**/*"
+    "admin/**/*",
+    "supabase/functions/**/*"
   ],
   "extends": "expo/tsconfig.base"
 }

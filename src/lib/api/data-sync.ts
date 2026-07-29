@@ -27,6 +27,11 @@ export interface ParentData {
   notification_settings?: Record<string, unknown> | null;
   privacy_settings?: Record<string, unknown> | null;
   sync_settings?: Record<string, unknown> | null;
+  /** Added in migration 019 — previously written by the app but had no column,
+   *  which made PostgREST reject the ENTIRE parent upsert. */
+  avatar_url?: string | null;
+  onboarding_data?: Record<string, unknown> | null;
+  six_month_goal?: string | null;
 }
 
 // Children table schema
@@ -58,11 +63,17 @@ export interface TaskData {
   description?: string | null;
   category: string;
   type: 'chore' | 'exercise' | 'personal_care';
-  status: 'pending' | 'completed' | 'skipped';
+  status: 'pending' | 'pending_approval' | 'completed' | 'skipped';
   points: number;
   negative_points?: number;
   due_date?: string | null;
   completed_at?: string | null;
+  submitted_at?: string | null;
+  /** Optional local wall-clock deadline, "HH:mm". NULL means no deadline. */
+  start_time?: string | null;
+  end_time?: string | null;
+  /** What the child calls whoever set this task. */
+  assigned_by_label?: string | null;
 }
 
 // Rewards table schema
@@ -434,7 +445,13 @@ export async function syncTaskToCloud(task: TaskData): Promise<{ success: boolea
   }
 
   try {
-    const { error } = await supabase
+    // database.types.ts is generated and stale: it predates migration 011
+    // ('pending_approval') and 017 (start_time/end_time), so the typed client
+    // rejects a payload the database accepts. Scoped to this one call rather
+    // than weakening the client everywhere; regenerating the types removes it.
+    const { error } = await (supabase as unknown as {
+      from: (t: string) => { upsert: (v: Record<string, unknown>) => Promise<{ error: { message: string } | null }> };
+    })
       .from('tasks')
       .upsert({
         id: task.id,
@@ -448,6 +465,12 @@ export async function syncTaskToCloud(task: TaskData): Promise<{ success: boolea
         negative_points: task.negative_points,
         due_date: task.due_date,
         completed_at: task.completed_at,
+        submitted_at: task.submitted_at,
+        // Deadlines are optional per task; undefined stays NULL in the column,
+        // which the Kids app reads as "no countdown".
+        start_time: task.start_time,
+        end_time: task.end_time,
+        assigned_by_label: task.assigned_by_label,
       });
 
     if (error) {

@@ -88,6 +88,10 @@ export default function TasksScreen() {
   const removeTask = useAppStore((s) => s.removeTask);
   const completeTask = useAppStore((s) => s.completeTask);
   const missTask = useAppStore((s) => s.missTask);
+  const submitTaskForApproval = useAppStore((s) => s.submitTaskForApproval);
+  const approveTask = useAppStore((s) => s.approveTask);
+  const rejectTask = useAppStore((s) => s.rejectTask);
+  const isChildMode = useAppStore((s) => s.isChildMode);
   
   const [modalVisible, setModalVisible] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'missed'>('all');
@@ -155,7 +159,9 @@ export default function TasksScreen() {
     if (!isSameDay) return false;
     
     // Status filtering
-    if (filter === 'pending') return task.status === 'pending';
+    // "pending_approval" belongs here too: it is still outstanding work, and a
+    // task a child has claimed must not disappear from every view while it waits.
+    if (filter === 'pending') return task.status === 'pending' || task.status === 'pending_approval';
     if (filter === 'completed') return task.status === 'completed';
     if (filter === 'missed') return task.status === 'skipped';
     return true;
@@ -360,6 +366,23 @@ export default function TasksScreen() {
     missTask(taskId);
   };
 
+  const handleSubmitForApproval = (taskId: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    submitTaskForApproval(taskId);
+  };
+
+  const handleApprove = async (taskId: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // The task is genuinely done now, so drop its reminder.
+    await cancelTaskNotification(taskId);
+    approveTask(taskId);
+  };
+
+  const handleReject = (taskId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    rejectTask(taskId);
+  };
+
   const getCategoryColor = (cat: TaskCategory) => {
     const colors: Record<TaskCategory, string> = {
       chore: 'bg-blue-500',
@@ -396,7 +419,7 @@ export default function TasksScreen() {
             <Text className="text-slate-400 mt-1">
               {showHistory 
                 ? formatDateHeader(historyDate)
-                : `${tasks.filter(t => t.status === 'pending').length} pending`
+                : `${tasks.filter(t => t.status === 'pending' || t.status === 'pending_approval').length} pending`
               }
             </Text>
           </View>
@@ -585,8 +608,51 @@ export default function TasksScreen() {
                             </View>
                           )}
                       </View>
-                        {/* Show action buttons for pending tasks OR missed tasks (users can still complete missed tasks) */}
-                        {(task.status === 'pending' || task.status === 'skipped') && (
+                        {/* CHILD: claim the task. Points are not awarded here --
+                            a parent still has to approve. */}
+                        {isChildMode && (task.status === 'pending' || task.status === 'skipped') && (
+                          <View className="mt-3">
+                            <Pressable
+                              onPress={() => handleSubmitForApproval(task.id)}
+                              className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg py-2.5 items-center"
+                            >
+                              <Text className="text-emerald-300 font-semibold">I did it! 🎉</Text>
+                            </Pressable>
+                          </View>
+                        )}
+
+                        {/* CHILD: already claimed, waiting on a grown-up. */}
+                        {isChildMode && task.status === 'pending_approval' && (
+                          <View className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg py-2.5 items-center">
+                            <Text className="text-amber-300 font-medium">Waiting for approval ⏳</Text>
+                          </View>
+                        )}
+
+                        {/* PARENT: approve or send back a child's claim. */}
+                        {!isChildMode && task.status === 'pending_approval' && (
+                          <View className="mt-3">
+                            <Text className="text-amber-300 text-xs mb-2">
+                              Your child marked this done — approve to award {task.points} points
+                            </Text>
+                            <View className="flex-row gap-2">
+                              <Pressable
+                                onPress={() => handleApprove(task.id)}
+                                className="flex-1 bg-emerald-500/20 border border-emerald-500/30 rounded-lg py-2 items-center"
+                              >
+                                <Text className="text-emerald-300 font-medium">Approve</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleReject(task.id)}
+                                className="flex-1 bg-slate-600/30 border border-slate-500/40 rounded-lg py-2 items-center"
+                              >
+                                <Text className="text-slate-300 font-medium">Not yet</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        )}
+
+                        {/* PARENT: normal completion path, unchanged. */}
+                        {!isChildMode && (task.status === 'pending' || task.status === 'skipped') && (
                           <View className="flex-row gap-2 mt-3">
                             <Pressable
                               onPress={() => handleComplete(task.id)}

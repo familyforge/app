@@ -41,9 +41,15 @@ import {
   Invitation,
 } from "../lib/state/family-store";
 import { useAppStore } from "../lib/state/app-store";
+import { useProfileStore } from "../lib/state/profile-store";
+import { can } from "../lib/plans";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 
 export default function GiveAccessScreen() {
   const router = useRouter();
+
+  // Selector returns a primitive so this only re-renders when the answer changes.
+  const canShareAccess = useProfileStore((s) => can(s.profile.plan, "accessSharing"));
 
   const members = useFamilyStore((state) => state.members);
   const invitations = useFamilyStore((state) => state.invitations);
@@ -77,6 +83,12 @@ export default function GiveAccessScreen() {
   );
 
   const openInviteModal = () => {
+    // Single gate for every entry point (header button, empty-state button), so
+    // the capability check cannot be bypassed by adding another caller later.
+    if (!canShareAccess) {
+      router.push({ pathname: "/upgrade", params: { source: "give-access" } });
+      return;
+    }
     setInviteEmail("");
     setSelectedAccessType("co_parent");
     setSelectedChildIds([]);
@@ -165,12 +177,16 @@ export default function GiveAccessScreen() {
           <ChevronLeft size={24} color="#fff" />
         </Pressable>
         <Text className="text-xl font-bold text-white">Give Access</Text>
-        <Pressable
-          onPress={openInviteModal}
-          className="h-10 w-10 rounded-full bg-purple-500/20 items-center justify-center"
-        >
-          <Plus size={24} color="#8b5cf6" />
-        </Pressable>
+        {canShareAccess ? (
+          <Pressable
+            onPress={openInviteModal}
+            className="h-10 w-10 rounded-full bg-purple-500/20 items-center justify-center"
+          >
+            <Plus size={24} color="#8b5cf6" />
+          </Pressable>
+        ) : (
+          <View className="h-10 w-10" />
+        )}
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }}>
@@ -186,6 +202,20 @@ export default function GiveAccessScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Contextual upsell: partner/guardian sharing is Forge-only per
+            WARNINGS.md, but was previously ungated here. Shown at the moment the
+            user reaches for the feature rather than buried in Profile. */}
+        {!canShareAccess && (
+          <View className="px-5 mt-4">
+            <UpgradePrompt
+              feature="share access with a partner"
+              benefit="Let a partner, co-parent or guardian help manage tasks and rewards — with their own access level."
+              requiredPlan="forge"
+              source="give-access"
+            />
+          </View>
+        )}
 
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (

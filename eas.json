@@ -11,12 +11,24 @@
       "cache": {
         "disabled": true
       }
+    },
+    "production-child": {
+      "extends": "production",
+      "env": {
+        "APP_VARIANT": "child"
+      }
     }
   },
   "submit": {
     "production": {
       "ios": {
         "ascAppId": "6758824419",
+        "appleTeamId": "VF3542MNWH"
+      }
+    },
+    "production-child": {
+      "ios": {
+        "ascAppId": "6795634131",
         "appleTeamId": "VF3542MNWH"
       }
     }

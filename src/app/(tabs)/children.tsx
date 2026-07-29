@@ -3,10 +3,14 @@ import { View, Text, ScrollView, Pressable, TextInput, Modal, Image, Platform } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
-import { Plus, Edit3, Archive, User, Trash2, RotateCcw, AlertTriangle, ChevronDown, ChevronRight, Camera, ImagePlus } from 'lucide-react-native';
+import { Plus, Edit3, Archive, User, Trash2, RotateCcw, AlertTriangle, ChevronDown, ChevronRight, Camera, ImagePlus, KeyRound, Eye } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAppStore } from '../../lib/state/app-store';
+import { ChildLoginCodeModal } from '../../components/ChildLoginCodeModal';
+import { CaregiverLabelModal } from '../../components/CaregiverLabelModal';
+import { ChildVisualNeedsModal } from '../../components/ChildVisualNeedsModal';
+import { supabase, isSupabaseConfigured } from '../../lib/api/supabase';
 import { ACADEMIC_YEARS, AcademicYear } from '../../lib/state/learning-store';
 
 // Type for children pending deletion with countdown
@@ -43,6 +47,30 @@ export default function ChildrenScreen() {
   // Delete confirmation modal states
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [childToDelete, setChildToDelete] = useState<string | null>(null);
+  // Child whose Kids-app sign-in code is being shown.
+  const [codeForChild, setCodeForChild] = useState<{ id: string; name: string } | null>(null);
+  // What this parent's children call them — drives all Kids-app copy.
+  const [labelOpen, setLabelOpen] = useState(false);
+  const [caregiverLabel, setCaregiverLabel] = useState<string | null>(null);
+  // Per-child visual accessibility (calm palette / reduced motion).
+  const [visualForChild, setVisualForChild] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isSupabaseConfigured()) return;
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) return;
+      const { data } = await supabase
+        .from('parents')
+        .select('caregiver_label')
+        .eq('id', auth.user.id)
+        .maybeSingle();
+      const label = (data as { caregiver_label?: string | null } | null)?.caregiver_label;
+      if (!cancelled && label) setCaregiverLabel(label);
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [confirmName, setConfirmName] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
@@ -264,6 +292,23 @@ export default function ChildrenScreen() {
           </Pressable>
         </View>
 
+        {/* Kids-app identity. Sits above the list because it applies to every
+            child, and because a blank label makes the Kids app say "your
+            grown-up" — which is the thing it is here to prevent. */}
+        <Pressable
+          onPress={() => setLabelOpen(true)}
+          className="mx-5 mb-5 flex-row items-center rounded-2xl border border-purple-500/25 bg-purple-500/10 px-4 py-3"
+        >
+          <KeyRound size={17} color="#a78bfa" />
+          <View className="ml-3 flex-1">
+            <Text className="text-xs text-slate-400">In the Kids app your children call you</Text>
+            <Text className="text-base font-semibold text-white">
+              {caregiverLabel ?? 'Not set yet — tap to choose'}
+            </Text>
+          </View>
+          <ChevronRight size={18} color="#64748b" />
+        </Pressable>
+
         <View className="px-5 pb-8">
           <View className="gap-4">
             {activeChildren.map((child) => {
@@ -297,11 +342,33 @@ export default function ChildrenScreen() {
                     ) : null}
                   </View>
                   <View className="flex-row gap-2 items-center">
-                    <Pressable 
+                    {/* Kids-app sign-in code. Sits on the child card because
+                        that is where a parent already goes to manage a child. */}
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setVisualForChild({ id: child.id, name: firstName });
+                      }}
+                      className="bg-sky-500/20 w-10 h-10 rounded-full items-center justify-center"
+                      accessibilityLabel={`Visual settings for ${firstName}`}
+                    >
+                      <Eye size={18} color="#38bdf8" />
+                    </Pressable>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setCodeForChild({ id: child.id, name: firstName });
+                      }}
+                      className="bg-purple-500/20 w-10 h-10 rounded-full items-center justify-center"
+                      accessibilityLabel={`Generate Kids app sign-in code for ${firstName}`}
+                    >
+                      <KeyRound size={18} color="#a78bfa" />
+                    </Pressable>
+                    <Pressable
                       onPress={(e) => {
                         e.stopPropagation();
                         handleEdit(child.id);
-                      }} 
+                      }}
                       className="bg-slate-700 w-10 h-10 rounded-full items-center justify-center"
                     >
                       <Edit3 size={18} color="#94a3b8" />
@@ -570,6 +637,27 @@ export default function ChildrenScreen() {
           </View>
         </View>
       </Modal>
+
+      <ChildLoginCodeModal
+        visible={codeForChild !== null}
+        childId={codeForChild?.id ?? null}
+        childName={codeForChild?.name ?? ''}
+        onClose={() => setCodeForChild(null)}
+      />
+
+      <ChildVisualNeedsModal
+        visible={visualForChild !== null}
+        childId={visualForChild?.id ?? null}
+        childName={visualForChild?.name ?? ''}
+        onClose={() => setVisualForChild(null)}
+      />
+
+      <CaregiverLabelModal
+        visible={labelOpen}
+        current={caregiverLabel}
+        onClose={() => setLabelOpen(false)}
+        onSaved={setCaregiverLabel}
+      />
     </SafeAreaView>
   );
 }

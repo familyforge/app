@@ -15,6 +15,7 @@
     "admin:build": "bunx vite build --config admin/vite.config.ts"
   },
   "dependencies": {
+    "@expo-google-fonts/baloo-2": "^0.4.2",
     "@expo-google-fonts/plus-jakarta-sans": "^0.2.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -26,6 +27,7 @@
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
     "expo": "~54.0.36",
+    "expo-blur": "~15.0.8",
     "expo-clipboard": "^8.0.8",
     "expo-constants": "~18.0.13",
     "expo-font": "~14.0.11",

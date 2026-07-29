@@ -107,6 +107,7 @@ import {
   ACADEMIC_CLASS_LABELS,
   LEARNING_STRUGGLE_LABELS,
 } from "../lib/state/onboarding-store";
+import { PinInput } from "../components/PinInput";
 import { useProfileStore, Gender } from "../lib/state/profile-store";
 import { useAppStore } from "../lib/state/app-store";
 import { useTestimonialsStore } from "../lib/state/testimonials-store";
@@ -120,6 +121,7 @@ import {
 } from "../lib/utils/currency";
 import { getAppPricingConfig } from "../lib/api/app-settings";
 import { signUp, syncChildToCloud, syncParentToCloud, getCurrentUser, type ChildData, type ParentData } from "../lib/api";
+import { requestNotificationPermissions } from "../lib/utils/notifications";
 import { sendWelcomeEmail, sendEmailVerificationCode } from "../lib/api/email";
 import { theme } from "../lib/theme";
 
@@ -397,13 +399,19 @@ export default function OnboardingScreen() {
     };
   }, [step, nextStep]);
 
-  // Auto-verify OTP when correct code is entered
+  // Auto-verify OTP when correct code is entered.
+  //
+  // `isVerifying` must NOT be a dependency here, and the effect must not read it.
+  // It previously did both, which deadlocked the screen: setIsVerifying(true)
+  // re-triggered this effect, React ran the cleanup first and cleared the pending
+  // timer, then the re-run bailed on `if (isVerifying) return` without scheduling
+  // a new one. The timer never fired, nextStep() was never called, and the
+  // spinner ran forever.
   useEffect(() => {
     if (step !== 20) return;
     if (verificationInput.length !== 4) return;
-    if (isVerifying) return;
     if (verificationInput !== emailVerificationCode) return;
-    
+
     // Correct code entered - auto-verify with brief delay for UX feedback
     setIsVerifying(true);
     const timer = setTimeout(() => {
@@ -413,7 +421,7 @@ export default function OnboardingScreen() {
       nextStep();
     }, 400);
     return () => clearTimeout(timer);
-  }, [step, verificationInput, emailVerificationCode, isVerifying, nextStep, setEmailVerified]);
+  }, [step, verificationInput, emailVerificationCode, nextStep, setEmailVerified]);
 
   // Check if can proceed
   const canProceed = useMemo(() => {
@@ -644,6 +652,18 @@ export default function OnboardingScreen() {
       markComplete();
       router.replace("/(tabs)/home");
 
+      // Ask for notification permission here, at the end of onboarding, rather
+      // than on cold start. iOS only ever shows this prompt ONCE -- after a
+      // denial the user has to be sent to Settings -- so it is asked at the point
+      // the reminders have just been explained and are about to matter.
+      //
+      // Until this call existed, permission was never requested at all, so every
+      // scheduled reminder was silently rejected by iOS and no notification the
+      // app scheduled had ever been delivered.
+      void requestNotificationPermissions().catch((err) =>
+        console.warn("Notification permission request failed:", err)
+      );
+
       // Cloud sync happens in background AFTER navigation (fire-and-forget)
       // This ensures we never block the user from getting to the dashboard
       (async () => {
@@ -670,6 +690,7 @@ export default function OnboardingScreen() {
             subscription_tier: selectedPlan === "forge" || selectedPlan === "pro" ? "premium" : "free",
             plan_code: selectedPlan || "free",
             avatar_url: avatarUrl || undefined,
+            six_month_goal: hopeChange || undefined,
             onboarding_data: {
               parentType,
               dailyPainPoints,
@@ -1496,7 +1517,7 @@ export default function OnboardingScreen() {
             showsVerticalScrollIndicator={false} 
             style={{ flex: 1 }}
             bottomOffset={50}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
             {/* Name Input */}
             <View style={{ marginBottom: 20 }}>
@@ -1823,54 +1844,21 @@ export default function OnboardingScreen() {
             <Text style={{ fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.7)", marginBottom: 10, marginLeft: 4 }}>
               Create your 6-digit PIN
             </Text>
-            <Pressable onPress={() => pinInputRef.current?.focus()}>
-              <View style={{ 
-                backgroundColor: "rgba(255,255,255,0.08)", 
-                borderRadius: 16, 
-                borderWidth: 2, 
-                borderColor: pin.length === 6 ? "#10B981" : "rgba(255,255,255,0.1)",
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-              }}>
-                <Lock size={20} color={pin.length === 6 ? "#10B981" : "rgba(255,255,255,0.4)"} />
-                <View style={{ flex: 1, flexDirection: "row", justifyContent: "center", gap: 8, paddingHorizontal: 12 }}>
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <View
-                      key={`pin-${index}`}
-                      style={{
-                        width: 36,
-                        height: 40,
-                        borderRadius: 8,
-                        backgroundColor: pin[index] ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.05)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderWidth: 1,
-                        borderColor: index === pin.length ? "#10B981" : pin[index] ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.08)",
-                      }}
-                    >
-                      <Text style={{ fontSize: 20, fontWeight: "700", color: "#fff" }}>
-                        {pin[index] ? (showPin ? pin[index] : "•") : ""}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-                {pin.length === 6 && (
-                  <Animated.View entering={ZoomIn.duration(200)}>
-                    <Check size={20} color="#10B981" />
-                  </Animated.View>
-                )}
-              </View>
-              <TextInput
-                ref={pinInputRef}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Lock size={20} color={pin.length === 6 ? "#10B981" : "rgba(255,255,255,0.4)"} />
+              <PinInput
+                style={{ flex: 1 }}
                 value={pin}
-                onChangeText={handlePinChange}
-                keyboardType="number-pad"
-                maxLength={6}
-                style={{ position: "absolute", opacity: 0, width: "100%", height: "100%" }}
+                onChange={handlePinChange}
+                masked={!showPin}
+                autoFocus={false}
               />
-            </Pressable>
+              {pin.length === 6 && (
+                <Animated.View entering={ZoomIn.duration(200)}>
+                  <Check size={20} color="#10B981" />
+                </Animated.View>
+              )}
+            </View>
 
             {/* Show/Hide PIN Toggle */}
             <Pressable 
@@ -2279,7 +2267,10 @@ export default function OnboardingScreen() {
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingTop: step === 0 || step === 16 || step === 17 || step === 23 ? 0 : 32, paddingBottom: 32, flexGrow: step === 0 || step === 16 || step === 17 || step === 23 ? 1 : undefined }}
-                keyboardShouldPersistTaps="handled"
+                // "always" not "handled": with "handled", moving from the email field
+                // to the PIN field spends the first tap dismissing the keyboard instead
+                // of focusing the next input.
+                keyboardShouldPersistTaps="always"
                 showsVerticalScrollIndicator={false}
               >
                 {renderStepContent()}

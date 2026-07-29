@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { isRemoteUrl } from './storage';
 import { useAppStore } from '../state/app-store';
 import { useProfileStore } from '../state/profile-store';
 import { useCalendarStore } from '../state/calendar-store';
@@ -118,22 +119,50 @@ export async function hydrateFromCloud(): Promise<{ ok: boolean; children: numbe
       submittedAt: (r.submitted_at as string) ?? null,
     }));
 
-    // Only overwrite local state when the cloud actually has something. A parent
-    // who has just signed up offline must not have their work erased by an empty
-    // remote.
-    if (children.length > 0 || tasks.length > 0) {
-      useAppStore.setState({ children, tasks });
+    // MERGE rather than replace.
+    //
+    // Replacing wholesale meant anything created locally but not yet pushed —
+    // a child added on a plane, a task made seconds before launch — was deleted
+    // the moment the cloud answered. Cloud wins for rows that exist in both
+    // (it is the shared truth), and purely local rows survive until they sync.
+    const local = useAppStore.getState();
+
+    const mergeById = <T extends { id: string }>(remote: T[], localRows: T[]): T[] => {
+      if (remote.length === 0) return localRows;
+      const byId = new Map(localRows.map((r) => [r.id, r]));
+      for (const row of remote) byId.set(row.id, row);
+      return Array.from(byId.values());
+    };
+
+    const mergedChildren = mergeById(children, local.children);
+    const mergedTasks = mergeById(tasks, local.tasks);
+
+    if (mergedChildren.length > 0 || mergedTasks.length > 0) {
+      useAppStore.setState({ children: mergedChildren, tasks: mergedTasks });
     }
 
     if (parentRow) {
       const p = parentRow as Record<string, unknown>;
-      useProfileStore.getState().updateProfile({
-        name: (p.name as string) || undefined,
-        email: (p.email as string) || undefined,
-        avatarUrl: (p.avatar_url as string) || undefined,
-        plan:
-          p.plan_code === 'forge' ? 'forge' : p.plan_code === 'pro' ? 'pro' : 'free',
-      });
+
+      // Only carry across fields the cloud actually HAS.
+      //
+      // updateProfile does `{ ...profile, ...updates }`, and object spread keeps
+      // keys whose value is undefined — so passing `avatarUrl: undefined`
+      // overwrote a good local value with nothing. Because this runs on every
+      // launch, it was erasing the parent's name, email and photo each time the
+      // cloud row was empty. Never let a blank remote destroy local data.
+      const patch: Record<string, unknown> = {};
+      if (typeof p.name === 'string' && p.name.trim()) patch.name = p.name;
+      if (typeof p.email === 'string' && p.email.trim()) patch.email = p.email;
+      if (typeof p.avatar_url === 'string' && p.avatar_url.trim()) {
+        patch.avatarUrl = p.avatar_url;
+      }
+      if (p.plan_code) {
+        patch.plan = p.plan_code === 'forge' ? 'forge' : p.plan_code === 'pro' ? 'pro' : 'free';
+      }
+      if (Object.keys(patch).length > 0) {
+        useProfileStore.getState().updateProfile(patch as never);
+      }
     }
 
     // ---- Calendar, deadlines and learning -------------------------------
@@ -288,7 +317,11 @@ async function pushNow(): Promise<void> {
       name: profile.name,
       // Column added in migration 019. Before it existed this whole update was
       // rejected, which is why a parent's name and picture never synced.
-      avatar_url: profile.avatarUrl ?? null,
+      //
+      // Only ever store a real URL. A file:// path is a sandbox location on one
+      // handset — writing it to the cloud would hand every other device a value
+      // it can never resolve.
+      avatar_url: isRemoteUrl(profile.avatarUrl) ? profile.avatarUrl : null,
       plan_code: profile.plan,
       updated_at: new Date().toISOString(),
     }).eq('id', parentId);
@@ -300,7 +333,7 @@ async function pushNow(): Promise<void> {
           parent_id: parentId,
           name: c.name,
           nickname: c.nickname ?? null,
-          picture: c.picture ?? null,
+          picture: isRemoteUrl(c.picture) ? c.picture : null,
           avatar: c.avatar ?? null,
           age: c.age,
           birthday: c.birthday ?? null,

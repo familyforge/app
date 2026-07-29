@@ -14,7 +14,7 @@
 // between the parent and child builds — meant a parent's leaked session put an
 // arbitrary child's name on screen, changing on every refresh.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, StatusBar, RefreshControl, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -59,6 +59,19 @@ const DISPLAY_MID = "Baloo2_700Bold";
 const BODY = "PlusJakartaSans_500Medium";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/**
+ * Resolve to `fallback` if a promise has not settled in time.
+ *
+ * Every network call on this screen is wrapped: without this, one hung request
+ * left a child staring at a loading screen with no way forward.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise.catch(() => fallback),
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
 
 function useBreathing(enabled = true) {
   const v = useSharedValue(0);
@@ -276,37 +289,77 @@ export default function ChildDashboard() {
   const [celebrate, setCelebrate] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Mutex: only one load may be in flight at a time.
+  const loadingRef = useRef(false);
+  // Set when a load is requested while one is already running, so the newer
+  // request re-runs afterwards instead of being silently dropped — otherwise
+  // switching child during a load would leave the previous child's data up.
+  const pendingRef = useRef(false);
+  // Always points at the newest `load`, so the re-run uses current state.
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const C = useChildTheme((s) => s.palette);
   const reduceMotion = useChildTheme((s) => s.reduceMotion);
   const setChildTheme = useChildTheme((s) => s.setTheme);
   const glow = useBreathing(!reduceMotion);
 
-  const load = useCallback(async () => {
+  /**
+   * Load the active child's session.
+   *
+   * Guarded by a mutex. Switching child previously fired TWO concurrent loads —
+   * one from the switcher's onSwitched, one from `activeChildId` changing and
+   * recreating this callback. Refresh tokens are single-use, so the second load
+   * refreshed with an already-consumed token, failed, and unlinked the child
+   * from the device. That was the hang, and why it stayed broken after a
+   * restart.
+   */
+  const load = useCallback(async (): Promise<void> => {
     if (!isChildApp) return;
+    if (loadingRef.current) {
+      pendingRef.current = true;
+      return;
+    }
+    loadingRef.current = true;
 
-    let session = await loadChildSession();
+    try {
+      let session = await withTimeout(loadChildSession(), 15000, null);
 
-    // The live session may be stale, or belong to a different child after a
-    // switch. Re-activate from the stored refresh token before giving up.
-    if ((!session || session.child.id !== activeChildId) && activeChildId) {
-      const linked = useChildDeviceStore.getState().linkedChildren.find((c) => c.childId === activeChildId);
-      if (linked) {
-        const restored = await activateLinkedChild(linked.refreshToken);
-        if (restored.success && restored.refreshToken) {
-          updateToken(activeChildId, restored.refreshToken);
-          session = await loadChildSession();
-        } else {
-          // Token is dead — send them back to the code screen rather than
-          // showing a stale or wrong child.
-          unlinkChild(activeChildId);
-          router.replace("/child-link");
-          return;
+      // Only re-activate when the live session genuinely is not this child. The
+      // switcher has usually just done it, so this is a fallback rather than the
+      // normal path.
+      if (activeChildId && (!session || session.child.id !== activeChildId)) {
+        const linked = useChildDeviceStore
+          .getState()
+          .linkedChildren.find((c) => c.childId === activeChildId);
+
+        if (linked) {
+          const restored = await withTimeout(
+            activateLinkedChild(linked.refreshToken),
+            15000,
+            { success: false as const }
+          );
+
+          if (restored.success && restored.refreshToken) {
+            updateToken(activeChildId, restored.refreshToken);
+            session = await withTimeout(loadChildSession(), 15000, null);
+          } else {
+            // Deliberately NOT unlinking. A transient network failure used to
+            // delete the child from the device, forcing a fresh code from a
+            // parent. Keep the entry and let them retry.
+            setError("Couldn't sign in just now. Check your connection and try again.");
+            setChild(null);
+            return;
+          }
         }
       }
-    }
 
-    if (session) {
+      if (!session) {
+        setChild(null);
+        return;
+      }
+
+      setError(null);
       // Applied before the first paint of real content, so a child who needs the
       // calm palette never sees a flash of the bright one.
       setChildTheme(session.visualTheme, session.reduceMotion);
@@ -315,21 +368,29 @@ export default function ChildDashboard() {
         id: session.child.id,
         name: session.child.name,
         points: session.child.points,
-        // Falls back only when no caregiver has named themselves yet.
         caregiver: session.child.caregiverLabel?.trim() || "your parent",
-        // Legacy rows still hold file:// paths from before uploads existed;
-        // those are unusable here, so they resolve to null and we fall back to
-        // the initial rather than rendering a broken image.
         photo: displayableImage(session.child.picture),
       });
-      const s = await getStreak("daily_login");
+
+      // Secondary data must never hold up the screen, nor break it if it fails.
+      const s = await withTimeout(getStreak("daily_login"), 10000, null);
       setStreak(s?.currentStreak ?? 0);
-      setGold(await loadGoldSummary(session.child.points));
-    } else {
-      setChild(null);
+      setGold(await withTimeout(loadGoldSummary(session.child.points), 10000, null));
+    } finally {
+      // In a finally so no early return, thrown error or timeout can leave the
+      // screen stuck on "Finding your quests".
+      loadingRef.current = false;
+      setLoading(false);
+      if (pendingRef.current) {
+        pendingRef.current = false;
+        void loadRef.current();
+      }
     }
-    setLoading(false);
-  }, [activeChildId, hydrateChildSession, updateToken, unlinkChild, setChildTheme]);
+  }, [activeChildId, hydrateChildSession, updateToken, setChildTheme]);
+
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -363,6 +424,7 @@ export default function ChildDashboard() {
   );
 
   if (loading || !child) {
+    const stuck = !loading && !child;
     return (
       <View style={{ flex: 1, backgroundColor: C.ink }}>
         <LinearGradient colors={[C.teal, C.deep, C.ink]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -371,6 +433,19 @@ export default function ChildDashboard() {
           <Text style={{ fontFamily: DISPLAY, fontSize: 25, color: C.cream, marginTop: 16, textAlign: "center" }}>
             {loading ? "Finding your quests…" : "Let's get you signed in"}
           </Text>
+          {error && (
+            <Text style={{ fontFamily: BODY, fontSize: 14, color: C.dim, marginTop: 10, textAlign: "center", lineHeight: 20 }}>
+              {error}
+            </Text>
+          )}
+          {stuck && (
+            <Pressable
+              onPress={() => { setLoading(true); setError(null); void load(); }}
+              style={{ marginTop: 18, paddingHorizontal: 26, paddingVertical: 14, borderRadius: 20, borderWidth: 2, borderColor: C.gold }}
+            >
+              <Text style={{ fontFamily: DISPLAY_MID, fontSize: 15, color: C.gold }}>Try again</Text>
+            </Pressable>
+          )}
           {!loading && (
             <Pressable
               onPress={() => router.replace("/child-link")}
@@ -687,7 +762,10 @@ export default function ChildDashboard() {
       <ChildSwitcher
         visible={switcherOpen}
         onClose={() => setSwitcherOpen(false)}
-        onSwitched={() => { setLoading(true); load(); }}
+        // Only flags the spinner. Reloading is driven by `activeChildId`
+        // changing, which recreates `load` with the NEW child. Calling load()
+        // here ran a closure still holding the previous child's id.
+        onSwitched={() => setLoading(true)}
         onAddChild={() => router.push("/child-link")}
       />
 

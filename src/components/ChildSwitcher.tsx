@@ -55,10 +55,11 @@ export function ChildSwitcher({ visible, onClose, onSwitched, onAddChild }: Prop
       onSwitched();
       onClose();
     } else {
-      // The stored token has been revoked or has expired for good. Drop it so
-      // the child is asked for a fresh code rather than being stuck.
-      unlinkChild(childId);
-      setError("That sign-in expired. Ask your parent for a new code.");
+      // Deliberately NOT unlinking. Refresh tokens are single-use, so a race or
+      // a dropped connection can fail a perfectly good token — deleting the
+      // child here used to strand them, needing a fresh code from a parent.
+      // Keep the entry; they can tap again or use a code if it is truly dead.
+      setError("Couldn't switch just now. Try again, or ask your parent for a code.");
       setSwitching(null);
     }
   };

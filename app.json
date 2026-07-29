@@ -13,7 +13,8 @@
       "backgroundColor": "#1E1B4B"
     },
     "assetBundlePatterns": [
-      "**/*"
+      "assets/logo.png",
+      "assets/fflogo.png"
     ],
     "ios": {
       "supportsTablet": true,

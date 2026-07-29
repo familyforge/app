@@ -1,3 +1,4 @@
+import { testimonialMedia } from "../lib/content/testimonialMedia";
 // FamilyForge Landing Page — Complete Conversion-Focused Redesign
 // Emotionally-driven, high-conversion marketing page (web only)
 // Inspired by entrepreneurscircle.org/genieai design patterns
@@ -118,8 +119,14 @@ interface VideoTestimonial {
   name: string;
   role: string;
   thumbnailColor: string;
-  thumbnailUrl: string; // Image URL for the thumbnail preview
-  videoUrl: string; // Direct video URL (Cloudinary, etc.) or YouTube video ID
+  /**
+   * Bundled asset (a number from require) on web, a URL string for remote
+   * media, or null on native — the landing page is web-only, so native builds
+   * resolve these to null and carry none of the media. See
+   * src/lib/content/testimonialMedia.ts.
+   */
+  thumbnailUrl: number | string | null;
+  videoUrl: number | string | null;
   isYouTube?: boolean; // Set to true if videoUrl is a YouTube video ID
 }
 
@@ -485,71 +492,71 @@ const VIDEO_TESTIMONIALS: VideoTestimonial[] = [
     name: "Rachel H.", 
     role: "Mum of 4, Bristol", 
     thumbnailColor: "#f43f5e", 
-    thumbnailUrl: require("../../assets/images/testimonials/rachel-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/rachel-video.mp4")
+    thumbnailUrl: testimonialMedia("rachel").thumbnail,
+    videoUrl: testimonialMedia("rachel").video
   },
   { 
     name: "Tom & Sarah W.", 
     role: "Parents of 2, Edinburgh", 
     thumbnailColor: "#3b82f6", 
-    thumbnailUrl: require("../../assets/images/testimonials/tom-sarah-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/tom-sarah-video.mp4")
+    thumbnailUrl: testimonialMedia("tom-sarah").thumbnail,
+    videoUrl: testimonialMedia("tom-sarah").video
   },
   { 
     name: "Priya K.", 
     role: "Mum of 3, Leicester", 
     thumbnailColor: "#8b5cf6", 
-    thumbnailUrl: require("../../assets/images/testimonials/priya-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/priya-video.mp4")
+    thumbnailUrl: testimonialMedia("priya").thumbnail,
+    videoUrl: testimonialMedia("priya").video
   },
   { 
     name: "Marcus D.", 
     role: "Dad of 2, Cardiff", 
     thumbnailColor: "#14b8a6", 
-    thumbnailUrl: require("../../assets/images/testimonials/marcus-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/marcus-video.mp4")
+    thumbnailUrl: testimonialMedia("marcus").thumbnail,
+    videoUrl: testimonialMedia("marcus").video
   },
   { 
     name: "Jenny L.", 
     role: "Mum of 3, Glasgow", 
     thumbnailColor: "#f59e0b", 
-    thumbnailUrl: require("../../assets/images/testimonials/jenny-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/jenny-video.mp4")
+    thumbnailUrl: testimonialMedia("jenny").thumbnail,
+    videoUrl: testimonialMedia("jenny").video
   },
   { 
     name: "Chris & Amina S.", 
     role: "Co-parents, Liverpool", 
     thumbnailColor: "#ec4899", 
-    thumbnailUrl: require("../../assets/images/testimonials/chris-amina-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/chris-amina-video.mp4")
+    thumbnailUrl: testimonialMedia("chris-amina").thumbnail,
+    videoUrl: testimonialMedia("chris-amina").video
   },
   { 
     name: "Emma R.", 
     role: "Mum of 2, Birmingham", 
     thumbnailColor: "#a855f7", 
-    thumbnailUrl: require("../../assets/images/testimonials/emma-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/emma-video.mp4")
+    thumbnailUrl: testimonialMedia("emma").thumbnail,
+    videoUrl: testimonialMedia("emma").video
   },
   { 
     name: "David & Lisa T.", 
     role: "Parents of 2, Leeds", 
     thumbnailColor: "#06b6d4", 
-    thumbnailUrl: require("../../assets/images/testimonials/david-lisa-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/david-lisa-video.mp4")
+    thumbnailUrl: testimonialMedia("david-lisa").thumbnail,
+    videoUrl: testimonialMedia("david-lisa").video
   },
   { 
     name: "Carlos M.", 
     role: "Dad of 1, Manchester", 
     thumbnailColor: "#f97316", 
-    thumbnailUrl: require("../../assets/images/testimonials/carlos-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/carlos-video.mp4")
+    thumbnailUrl: testimonialMedia("carlos").thumbnail,
+    videoUrl: testimonialMedia("carlos").video
   },
   { 
     name: "James & Claire H.", 
     role: "Parents of 3, London", 
     thumbnailColor: "#84cc16", 
-    thumbnailUrl: require("../../assets/images/testimonials/james-claire-thumbnail.jpeg"),
-    videoUrl: require("../../assets/videos/testimonials/james-claire-video.mp4")
+    thumbnailUrl: testimonialMedia("james-claire").thumbnail,
+    videoUrl: testimonialMedia("james-claire").video
   },
 ];
 
@@ -2307,9 +2314,10 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
               transform: [{ scale: pressed ? 0.97 : 1 }],
             })}
           >
-            {/* Thumbnail Image */}
+            {/* Thumbnail Image. Null on native, where this page never renders --
+                the coloured block behind it stands in. */}
             <Image
-              source={item.thumbnailUrl}
+              source={(item.thumbnailUrl ?? undefined) as never}
               style={{
                 position: "absolute",
                 width: "100%",
@@ -2482,8 +2490,8 @@ function VideoTestimonialCarousel({ isWide }: { isWide: boolean }) {
                     // Direct video (Cloudinary, etc.)
                     /* @ts-ignore */
                     <video
-                      src={activeVideo.videoUrl}
-                      poster={activeVideo.thumbnailUrl}
+                      src={(activeVideo.videoUrl as unknown as string) ?? undefined}
+                      poster={(activeVideo.thumbnailUrl as unknown as string) ?? undefined}
                       autoPlay
                       controls
                       playsInline

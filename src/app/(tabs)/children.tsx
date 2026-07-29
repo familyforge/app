@@ -11,6 +11,7 @@ import { ChildLoginCodeModal } from '../../components/ChildLoginCodeModal';
 import { CaregiverLabelModal } from '../../components/CaregiverLabelModal';
 import { ChildVisualNeedsModal } from '../../components/ChildVisualNeedsModal';
 import { supabase, isSupabaseConfigured } from '../../lib/api/supabase';
+import { uploadAvatar, displayableImage } from '../../lib/api/storage';
 import { ACADEMIC_YEARS, AcademicYear } from '../../lib/state/learning-store';
 
 // Type for children pending deletion with countdown
@@ -172,8 +173,14 @@ export default function ChildrenScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
+
+    // Upload before saving so the stored value is a URL both apps can load, not
+    // a file:// path into this handset's sandbox. Returns the input unchanged
+    // if it is already remote, so re-saving an unedited profile re-uploads
+    // nothing; returns null on failure, which must not block the save.
+    const uploadedPicture = photo ? await uploadAvatar(photo, 'children') : null;
 
     const payload = {
       name: name.trim(),
@@ -187,7 +194,7 @@ export default function ChildrenScreen() {
         .filter(Boolean),
       learningStyle: learningStyle.trim(),
       specialNeeds: specialNeeds.trim(),
-      picture: photo || null,
+      picture: uploadedPicture ?? (displayableImage(photo) || null),
       academicYear: academicYear || undefined,
     };
 

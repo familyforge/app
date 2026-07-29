@@ -122,6 +122,7 @@ import {
 import { getAppPricingConfig } from "../lib/api/app-settings";
 import { signUp, syncChildToCloud, syncParentToCloud, getCurrentUser, type ChildData, type ParentData } from "../lib/api";
 import { requestNotificationPermissions } from "../lib/utils/notifications";
+import { uploadAvatar } from "../lib/api/storage";
 import { sendWelcomeEmail, sendEmailVerificationCode } from "../lib/api/email";
 import { theme } from "../lib/theme";
 
@@ -746,7 +747,11 @@ export default function OnboardingScreen() {
       : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
 
     if (!result.canceled && result.assets.length > 0) {
-      setAvatarUrl(result.assets[0].uri);
+      // The account is created at step 19, so by the avatar step there is a
+      // session to upload under. Store the public URL rather than the sandbox
+      // path, which would be unreadable on any other device or in the Kids app.
+      const uploaded = await uploadAvatar(result.assets[0].uri, 'parents');
+      setAvatarUrl(uploaded ?? result.assets[0].uri);
     }
   };
 

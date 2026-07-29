@@ -1,3 +1,4 @@
+import { uploadAvatar } from '../lib/api/storage';
 /// <reference types="nativewind/types" />
 
 import { useMemo, useState, useCallback } from "react";
@@ -125,7 +126,11 @@ export default function EditProfileScreen() {
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      updateProfile({ avatarUrl: result.assets[0].uri });
+      // Upload immediately so the stored value is a URL, not a sandbox path.
+      // Falls back to the local URI only for instant preview if upload fails;
+      // cloud-sync will not push a file:// value.
+      const uploaded = await uploadAvatar(result.assets[0].uri, 'parents');
+      updateProfile({ avatarUrl: uploaded ?? result.assets[0].uri });
     }
   };
 

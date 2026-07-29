@@ -15,7 +15,7 @@
 // arbitrary child's name on screen, changing on every refresh.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, StatusBar, RefreshControl } from "react-native";
+import { View, Text, ScrollView, Pressable, StatusBar, RefreshControl, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,6 +31,7 @@ import Animated, {
 import { useAppStore } from "../lib/state/app-store";
 import { useChildDeviceStore } from "../lib/state/child-device-store";
 import { loadChildSession, submitTaskForApprovalRemote, loadGoldSummary, type GoldSummary } from "../lib/api/childSession";
+import { displayableImage } from "../lib/api/storage";
 import { activateLinkedChild } from "../lib/api/childLogin";
 import { getStreak } from "../lib/api/streaks";
 import { isChildApp } from "../lib/appVariant";
@@ -266,7 +267,7 @@ export default function ChildDashboard() {
   const signOutActive = useChildDeviceStore((s) => s.signOutActive);
 
   // Resolved strictly from the session — never guessed from a local list.
-  const [child, setChild] = useState<{ id: string; name: string; points: number; caregiver: string } | null>(null);
+  const [child, setChild] = useState<{ id: string; name: string; points: number; caregiver: string; photo: string | null } | null>(null);
   const [streak, setStreak] = useState(0);
   const [gold, setGold] = useState<GoldSummary | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -316,6 +317,10 @@ export default function ChildDashboard() {
         points: session.child.points,
         // Falls back only when no caregiver has named themselves yet.
         caregiver: session.child.caregiverLabel?.trim() || "your parent",
+        // Legacy rows still hold file:// paths from before uploads existed;
+        // those are unusable here, so they resolve to null and we fall back to
+        // the initial rather than rendering a broken image.
+        photo: displayableImage(session.child.picture),
       });
       const s = await getStreak("daily_login");
       setStreak(s?.currentStreak ?? 0);
@@ -413,14 +418,22 @@ export default function ChildDashboard() {
                   backgroundColor: "rgba(255,246,232,0.28)",
                 }}
               >
-                <LinearGradient
-                  colors={[C.gold, "#F2913D"]}
-                  style={{ flex: 1, borderRadius: 30, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Text style={{ fontFamily: DISPLAY, fontSize: 28, color: "#3A2606" }}>
-                    {firstName.charAt(0).toUpperCase()}
-                  </Text>
-                </LinearGradient>
+                {child.photo ? (
+                  <Image
+                    source={{ uri: child.photo }}
+                    style={{ flex: 1, borderRadius: 30 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={[C.gold, C.sun]}
+                    style={{ flex: 1, borderRadius: 30, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ fontFamily: DISPLAY, fontSize: 28, color: "#3A2606" }}>
+                      {firstName.charAt(0).toUpperCase()}
+                    </Text>
+                  </LinearGradient>
+                )}
               </View>
 
               <View style={{ marginLeft: 13, flex: 1 }}>

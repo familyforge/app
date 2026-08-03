@@ -127,6 +127,11 @@ export async function completeTask(taskId: string): Promise<Task> {
 
   // Send achievement email if task completion is significant
   try {
+    // A task with no child has no one to congratulate, and .eq() cannot take
+    // undefined — it would query for the string "undefined". The task itself
+    // still completed, so it is returned either way.
+    if (!task.childId) return task;
+
     // Get child and parent info
     const { data: child } = await supabase
       .from('children')
@@ -142,14 +147,20 @@ export async function completeTask(taskId: string): Promise<Task> {
       const isStreakMilestone = false; // TODO: Check for streak milestones
       
       if (isSignificantTask) {
-        await sendAchievementAlert({
-          parentEmail: parent.email,
-          parentName: parent.name,
-          childName: child.name,
-          achievementTitle: 'Task Completed!',
-          achievementDetails: `${child.name} completed "${task.title}" and earned ${task.points} points!`,
-          pointsEarned: task.points,
-        });
+        // sendAchievementAlert takes (recipients, data). This was being called
+        // with one flat object mixing the two, so the email never sent — the
+        // recipient list arrived as the achievement payload and vice versa.
+        await sendAchievementAlert(
+          [{ email: parent.email, name: parent.name }],
+          {
+            childName: child.name,
+            achievementType: 'task_completed',
+            achievementTitle: 'Task Completed!',
+            achievementDetails: `${child.name} completed "${task.title}" and earned ${task.points} points!`,
+            pointsEarned: task.points,
+            newTotalPoints: child.points ?? undefined,
+          }
+        );
       }
     }
   } catch (emailError) {

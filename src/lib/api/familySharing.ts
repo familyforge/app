@@ -9,12 +9,12 @@
 // reads the family's children and tasks because the policies allow it, and a
 // stranger gets zero rows however they ask.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase';
 import type { AccessType, MemberPermissions } from '../state/family-store';
 
-// family_members postdates the generated database types.
-const db = supabase as unknown as SupabaseClient;
+// The generated types now cover every table, so the typed client is used
+// directly — the untyped alias that stale types forced is gone.
+const db = supabase;
 
 export interface CloudFamilyMember {
   id: string;

@@ -38,16 +38,12 @@ export default function EmailPreferencesScreen() {
     
     try {
       setLoading(true);
-      const data = await getEmailPreferences(user.id);
-      if (data) {
-        setPrefs({
-          task_reminders: data.task_reminders,
-          achievement_alerts: data.achievement_alerts,
-          weekly_reports: data.weekly_reports,
-          marketing_emails: data.marketing_emails,
-          family_invites: data.family_invites,
-          security_alerts: data.security_alerts,
-        });
+      const result = await getEmailPreferences(user.id);
+      // `result` is the wrapper; the flags live on `result.preferences`. Reading
+      // them off the wrapper is why every toggle showed off regardless of what
+      // was saved.
+      if (result.success && result.preferences) {
+        setPrefs(result.preferences);
       }
     } catch (error) {
       console.error('Failed to load email preferences:', error);

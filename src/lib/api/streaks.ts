@@ -9,16 +9,12 @@
 // is down or the user is offline, the underlying action must still succeed, so
 // nothing in here ever throws.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { notifyStreakMilestone } from './notifications';
 
-// `user_streaks` is missing from the generated Database types — database.types.ts
-// predates migration 009, which created the table. Rather than weaken the typed
-// client everywhere (or hand-edit a 1,394-line UTF-16 generated file), this one
-// untyped view is scoped to this module. Regenerating the types with
-// `supabase gen types typescript` would let this be removed.
-const db = supabase as unknown as SupabaseClient;
+// The generated types now cover every table, so the typed client is used
+// directly — the untyped alias that stale types forced is gone.
+const db = supabase;
 
 export type StreakType = 'daily_login' | 'task_completion' | 'learning' | 'routine';
 

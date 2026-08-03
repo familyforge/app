@@ -6,12 +6,12 @@
 // (migration 014) already restricts every query here to the one child, so no
 // filtering by id is needed — the database returns only what they may see.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase';
-
-// learning_progress postdates the generated database types.
-const db = supabase as unknown as SupabaseClient;
 import type { Child, Task, TaskCategory, TaskStatus } from '../types';
+
+// The generated types now cover every table, so the typed client is used
+// directly — the untyped alias that stale types forced is gone.
+const db = supabase;
 
 interface ChildRow {
   id: string;
@@ -341,6 +341,13 @@ export async function loadAboutMe(): Promise<AboutAnswers> {
 /** Save one answer. Upserts on (child_id, field_key), so editing replaces. */
 export async function saveAboutMe(childId: string, parentId: string | null, key: string, value: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
+  // child_about.parent_id is NOT NULL. Writing without it fails at the database,
+  // which would have silently lost a child's answer — the regenerated types
+  // caught this; the stale ones did not.
+  if (!parentId) {
+    console.warn('[childSession] about-me save skipped: no parent id resolved');
+    return false;
+  }
   try {
     const { error } = await db.from('child_about').upsert(
       {

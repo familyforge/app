@@ -63,8 +63,11 @@ export function mapRewardRow(row: Tables<'rewards'>): Reward {
     title: row.title,
     description: row.description ?? undefined,
     imageUrl: row.image_url ?? undefined,
-    pointsCost: row.points_required,
-    pointsRequired: row.points_required,
+    // points_required became nullable in migration 020: a milestone reward has a
+    // gold target rather than a price. Zero is the right local stand-in — the
+    // Kids app shows the target instead when period is 'gold_target'.
+    pointsCost: row.points_required ?? 0,
+    pointsRequired: row.points_required ?? undefined,
     dateEarned: row.date_earned,
     redeemed: row.redeemed,
     redeemedAt: row.redeemed_at,

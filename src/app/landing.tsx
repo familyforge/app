@@ -731,8 +731,10 @@ function StickyNav({ onGetStarted }: { onGetStarted: () => void }) {
         backgroundColor: "rgba(15, 10, 31, 0.92)",
         borderBottomWidth: 1,
         borderBottomColor: "rgba(139, 92, 246, 0.15)",
-        backdropFilter: "blur(20px)" as any,
-        WebkitBackdropFilter: "blur(20px)" as any,
+        // Web-only CSS. `as any` on the value does not help because the KEY
+        // itself is not in ViewStyle, so the whole object fails to match.
+        // Spread through a cast instead — this page only renders on web.
+        ...({ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" } as object),
       }}
     >
       <View

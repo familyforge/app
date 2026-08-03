@@ -82,7 +82,8 @@ export interface RewardData {
   child_id?: string | null;
   title: string;
   description?: string | null;
-  points_required: number;
+  /** Nullable since migration 020: a milestone reward has a target, not a price. */
+  points_required: number | null;
   image_url?: string | null;
   redeemed: boolean;
   redeemed_at?: string | null;

@@ -16,7 +16,6 @@
 // stay simple and offline-first, and sync is one thing that can be reasoned
 // about and switched off.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isRemoteUrl } from './storage';
 import { useAppStore } from '../state/app-store';
@@ -32,10 +31,9 @@ const str = (v: unknown, fallback = '') => (v == null ? fallback : String(v));
 const num = (v: unknown, fallback = 0) => (v == null ? fallback : Number(v));
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
-// The generated database.types.ts is stale (it predates several migrations), so
-// these writes go through an untyped view of the client. Regenerating the types
-// would let this be removed.
-const db = supabase as unknown as SupabaseClient;
+// The generated types now cover every table, so the typed client is used
+// directly — the untyped alias that stale types forced is gone.
+const db = supabase;
 
 /** Wait this long after the last change before writing, to batch rapid edits. */
 const DEBOUNCE_MS = 1500;
@@ -359,11 +357,13 @@ async function pushNow(): Promise<void> {
         .maybeSingle();
       const label = (me as { caregiver_label?: string } | null)?.caregiver_label ?? null;
 
+      // A task with no child cannot satisfy the RLS policy (ownership is checked
+      // through children) AND tasks.child_id is NOT NULL, so these are dropped
+      // rather than sent. Narrowed explicitly so the type reflects that.
+      const syncableTasks = tasks.flatMap((t) => (t.childId ? [{ ...t, childId: t.childId }] : []));
+
       await db.from('tasks').upsert(
-        tasks
-          // A task with no child cannot satisfy the RLS policy, which checks
-          // ownership through children.
-          .filter((t) => Boolean(t.childId))
+        syncableTasks
           .map((t) => ({
             id: t.id,
             child_id: t.childId,

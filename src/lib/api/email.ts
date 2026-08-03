@@ -417,14 +417,37 @@ export async function sendDataExportReady(
 /**
  * Get email preferences for a user
  */
+/**
+ * The six flags as the `email_preferences` table stores them.
+ *
+ * Deliberately snake_case: the table, the settings screen and this API were
+ * previously three different shapes — the declared type was camelCase and
+ * missing family_invites and security_alerts entirely, while the screen read
+ * snake_case off the RESULT WRAPPER rather than the row. Every toggle therefore
+ * read undefined and rendered off no matter what was stored, and saving wrote
+ * keys the table does not have. One shape, matching the database.
+ */
+export interface EmailPreferenceFlags {
+  task_reminders: boolean;
+  achievement_alerts: boolean;
+  weekly_reports: boolean;
+  marketing_emails: boolean;
+  family_invites: boolean;
+  security_alerts: boolean;
+}
+
+const DEFAULT_EMAIL_PREFERENCES: EmailPreferenceFlags = {
+  task_reminders: true,
+  achievement_alerts: true,
+  weekly_reports: true,
+  marketing_emails: false,
+  family_invites: true,
+  security_alerts: true,
+};
+
 export async function getEmailPreferences(userId: string): Promise<{
   success: boolean;
-  preferences?: {
-    taskReminders: boolean;
-    achievementAlerts: boolean;
-    weeklyReports: boolean;
-    marketingEmails: boolean;
-  };
+  preferences?: EmailPreferenceFlags;
   error?: string;
 }> {
   try {
@@ -437,20 +460,25 @@ export async function getEmailPreferences(userId: string): Promise<{
     if (error) {
       // If no preferences exist, return defaults
       if (error.code === 'PGRST116') {
-        return {
-          success: true,
-          preferences: {
-            taskReminders: true,
-            achievementAlerts: true,
-            weeklyReports: true,
-            marketingEmails: false,
-          },
-        };
+        return { success: true, preferences: { ...DEFAULT_EMAIL_PREFERENCES } };
       }
       return { success: false, error: error.message };
     }
 
-    return { success: true, preferences: data };
+    // Columns are nullable, so a missing value falls back to the default rather
+    // than surfacing null as "off".
+    const row = (data ?? {}) as Partial<Record<keyof EmailPreferenceFlags, boolean | null>>;
+    return {
+      success: true,
+      preferences: {
+        task_reminders: row.task_reminders ?? DEFAULT_EMAIL_PREFERENCES.task_reminders,
+        achievement_alerts: row.achievement_alerts ?? DEFAULT_EMAIL_PREFERENCES.achievement_alerts,
+        weekly_reports: row.weekly_reports ?? DEFAULT_EMAIL_PREFERENCES.weekly_reports,
+        marketing_emails: row.marketing_emails ?? DEFAULT_EMAIL_PREFERENCES.marketing_emails,
+        family_invites: row.family_invites ?? DEFAULT_EMAIL_PREFERENCES.family_invites,
+        security_alerts: row.security_alerts ?? DEFAULT_EMAIL_PREFERENCES.security_alerts,
+      },
+    };
   } catch (error) {
     console.error('Error fetching email preferences:', error);
     return { success: false, error: 'Failed to fetch preferences' };
@@ -462,12 +490,7 @@ export async function getEmailPreferences(userId: string): Promise<{
  */
 export async function updateEmailPreferences(
   userId: string,
-  preferences: Partial<{
-    taskReminders: boolean;
-    achievementAlerts: boolean;
-    weeklyReports: boolean;
-    marketingEmails: boolean;
-  }>
+  preferences: Partial<EmailPreferenceFlags>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const db = supabase as unknown as {

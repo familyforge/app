@@ -13,6 +13,13 @@ export interface ChildLocation {
   status: LocationStatus;
   accuracy?: number;
   batteryLevel?: number;
+  /**
+   * Human-readable place, when reverse geocoding has resolved one.
+   * findmykids.tsx has always rendered this with a lat/long fallback, but the
+   * field was never declared — so it read undefined and every location showed
+   * as coordinates.
+   */
+  placeName?: string;
   isAppInstalled: boolean;
   hasPermission: boolean;
 }

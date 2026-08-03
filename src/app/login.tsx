@@ -199,6 +199,17 @@ export default function LoginScreen() {
                     />
                   </View>
 
+                  {/* Been invited? An invited partner or guardian arrives with
+                      a code and nothing else; without this they have no route in. */}
+                  <Pressable
+                    onPress={() => router.push('/join-family')}
+                    style={{ alignSelf: 'center', marginBottom: 18, paddingVertical: 8 }}
+                  >
+                    <Text style={{ color: colors.purple, fontSize: 14.5, fontWeight: '600' }}>
+                      Been invited to a family? Enter your code
+                    </Text>
+                  </Pressable>
+
                   {/* Forgot PIN */}
                   <Pressable onPress={handleForgotPin} style={{ alignSelf: 'flex-end', marginBottom: 24 }}>
                     <Text style={{ color: colors.teal, fontSize: 14 }}>Forgot PIN?</Text>

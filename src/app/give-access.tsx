@@ -44,6 +44,7 @@ import { useAppStore } from "../lib/state/app-store";
 import { useProfileStore } from "../lib/state/profile-store";
 import { can } from "../lib/plans";
 import { UpgradePrompt } from "../components/UpgradePrompt";
+import { inviteFamilyMember } from "../lib/api/familySharing";
 
 export default function GiveAccessScreen() {
   const router = useRouter();
@@ -101,11 +102,28 @@ export default function GiveAccessScreen() {
     setMemberModalOpen(true);
   };
 
-  const handleCreateInvitation = () => {
+  const handleCreateInvitation = async () => {
     if (!inviteEmail.trim()) return;
 
+    // Local first, so the code appears immediately and works offline.
     const invitation = createInvitation(inviteEmail.trim(), selectedAccessType);
     setLastInvitation(invitation);
+
+    // Then persist to the cloud. Until this existed the invite lived only in
+    // this parent's AsyncStorage, so `family_members` stayed empty and the code
+    // could never be redeemed by anyone — the whole feature was a dead end.
+    const saved = await inviteFamilyMember({
+      name: inviteEmail.trim().split("@")[0],
+      email: inviteEmail.trim(),
+      accessType: selectedAccessType,
+      permissions: DEFAULT_PERMISSIONS[selectedAccessType] ?? {},
+    });
+
+    // The server generates the authoritative code; show that one so what the
+    // parent reads out is what redemption will accept.
+    if (saved?.inviteCode) {
+      setLastInvitation({ ...invitation, code: saved.inviteCode });
+    }
   };
 
   const handleCopyCode = async () => {

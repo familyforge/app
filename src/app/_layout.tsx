@@ -159,6 +159,12 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
+          name="join-family"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="child-about"
           options={{
             headerShown: false,

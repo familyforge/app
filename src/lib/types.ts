@@ -65,6 +65,14 @@ export interface Task {
   assignedByLabel?: string | null;
 }
 
+/**
+ * How a reward is earned.
+ *   spend       — exchange points for it (the original behaviour)
+ *   daily..yearly — earned within a recurring window
+ *   gold_target — unlocks once all-time gold reaches a threshold
+ */
+export type RewardPeriod = 'spend' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'gold_target';
+
 export interface Reward {
   id: string;
   childId?: string;
@@ -76,6 +84,10 @@ export interface Reward {
   dateEarned?: string | null;
   redeemed?: boolean;
   redeemedAt?: string | null;
+  /** Defaults to 'spend' so existing rewards keep their old behaviour. */
+  period?: RewardPeriod;
+  /** All-time gold needed. Only meaningful when period is 'gold_target'. */
+  goldTarget?: number | null;
   createdAt: string;
 }
 

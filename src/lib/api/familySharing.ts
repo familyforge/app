@@ -215,3 +215,43 @@ export async function listJoinedFamilies(): Promise<Array<{ familyId: string; ro
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// WHAT A CHILD SHARED ABOUT THEMSELVES
+// ---------------------------------------------------------------------------
+
+export interface AboutEntry {
+  key: string;
+  value: string;
+  updatedAt: string | null;
+}
+
+/**
+ * Read a child's "About me" answers.
+ *
+ * The child writes these in the Kids app; RLS (migration 019) lets the owning
+ * parent read them. Without this the answers were write-only — a child could
+ * tell their family something and nobody could ever see it.
+ */
+export async function loadChildAbout(childId: string): Promise<AboutEntry[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const { data, error } = await db
+      .from('child_about')
+      .select('field_key, value, updated_at')
+      .eq('child_id', childId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.warn('[family] about-me read failed:', error.message);
+      return [];
+    }
+
+    return ((data as Array<{ field_key: string; value: string | null; updated_at: string | null }> | null) ?? [])
+      .filter((r) => r.value && r.value.trim())
+      .map((r) => ({ key: r.field_key, value: (r.value ?? '').trim(), updatedAt: r.updated_at }));
+  } catch (err) {
+    console.warn('[family] about-me read failed:', err);
+    return [];
+  }
+}

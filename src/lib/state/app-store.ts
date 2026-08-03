@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Child, Parent, Task, Reward, Exercise, Report, Settings, TaskCategory } from "../types";
+import type { Child, Parent, Task, Reward, RewardPeriod, Exercise, Report, Settings, TaskCategory } from "../types";
 import { recordStreakActivity } from "../api/streaks";
 
 // Helper to generate UUID-like IDs (valid UUID format)
@@ -48,6 +48,8 @@ interface AddRewardInput {
   description?: string;
   pointsCost: number;
   imageUrl?: string;
+  period?: RewardPeriod;
+  goldTarget?: number | null;
 }
 
 interface AppState {
@@ -407,6 +409,10 @@ export const useAppStore = create<AppState>()(
           description: input.description,
           pointsCost: input.pointsCost,
           imageUrl: input.imageUrl,
+          // Defaults to 'spend' so rewards created before periods existed keep
+          // behaving exactly as they did.
+          period: input.period ?? 'spend',
+          goldTarget: input.goldTarget ?? null,
           redeemed: false,
           createdAt: new Date().toISOString(),
         };

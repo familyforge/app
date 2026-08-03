@@ -25,6 +25,7 @@ import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useAppStore } from "../lib/state/app-store";
 import { useLearningStore, LEARNING_CATEGORIES } from "../lib/state/learning-store";
 
+import { ChildAboutCard } from "../components/ChildAboutCard";
 export default function ChildProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -290,6 +291,12 @@ export default function ChildProfileScreen() {
             </View>
           </Animated.View>
           
+          {/* What the child told their family. Placed above the progress report
+              because a child's own words matter more than their statistics. */}
+          <Animated.View entering={FadeInUp.delay(350).duration(500)} className="px-5">
+            <ChildAboutCard childId={child.id} childName={child.name} />
+          </Animated.View>
+
           {/* Progress Report */}
           <Animated.View
             entering={FadeInUp.delay(400).duration(500)}

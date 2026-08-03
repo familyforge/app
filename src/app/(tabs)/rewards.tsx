@@ -5,7 +5,16 @@ import { Plus, X, Gift, Star, Check, ShoppingCart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../lib/state/app-store';
 import { RewardCard } from '../../components/RewardCard';
-import type { Reward } from '../../lib/types';
+import type { Reward, RewardPeriod } from '../../lib/types';
+
+const REWARD_PERIODS: Array<{ key: RewardPeriod; label: string; blurb: string }> = [
+  { key: 'spend', label: 'Spend gold', blurb: 'Swap gold for it any time.' },
+  { key: 'daily', label: 'Daily', blurb: 'Can be earned once a day. Resets each morning.' },
+  { key: 'weekly', label: 'Weekly', blurb: 'Once a week. Resets on Monday.' },
+  { key: 'monthly', label: 'Monthly', blurb: 'Once a month.' },
+  { key: 'yearly', label: 'Yearly', blurb: 'A big one, once a year.' },
+  { key: 'gold_target', label: 'Big goal', blurb: 'Unlocks when total gold reaches a target.' },
+];
 
 export default function RewardsScreen() {
   const rewards = useAppStore((s) => s.rewards);
@@ -22,19 +31,29 @@ export default function RewardsScreen() {
   const [description, setDescription] = useState('');
   const [pointsCost, setPointsCost] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  // The schema has supported these since migration 020 and the Kids app already
+  // groups by them; the form was the only thing still stuck on "costs N points".
+  const [period, setPeriod] = useState<RewardPeriod>('spend');
+  const [goldTarget, setGoldTarget] = useState('');
+
+  const isMilestone = period === 'gold_target';
+  // A milestone needs a target; everything else needs a price.
+  const canSubmit = title.trim().length > 0 && (isMilestone ? goldTarget.trim().length > 0 : pointsCost.trim().length > 0);
 
   const handleAddReward = () => {
-    if (!title.trim() || !pointsCost) return;
-    
+    if (!canSubmit) return;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     addReward({
       title: title.trim(),
       description: description.trim() || undefined,
-      pointsCost: parseInt(pointsCost) || 50,
+      pointsCost: isMilestone ? 0 : parseInt(pointsCost) || 50,
       imageUrl: imageUrl.trim() || undefined,
+      period,
+      goldTarget: isMilestone ? parseInt(goldTarget) || null : null,
     });
-    
+
     resetForm();
   };
 
@@ -44,6 +63,8 @@ export default function RewardsScreen() {
     setDescription('');
     setPointsCost('');
     setImageUrl('');
+    setPeriod('spend');
+    setGoldTarget('');
   };
 
   const handleRedeemPress = (reward: Reward) => {
@@ -195,16 +216,58 @@ export default function RewardsScreen() {
               </View>
 
               <View>
-                <Text className="text-slate-400 mb-2">Points Cost</Text>
-                <TextInput
-                  value={pointsCost}
-                  onChangeText={setPointsCost}
-                  placeholder="50"
-                  placeholderTextColor="#64748b"
-                  keyboardType="numeric"
-                  className="bg-slate-700 rounded-xl px-4 py-3 text-white"
-                />
+                <Text className="text-slate-400 mb-2">How is it earned?</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {REWARD_PERIODS.map((opt) => {
+                    const active = period === opt.key;
+                    return (
+                      <Pressable
+                        key={opt.key}
+                        onPress={() => { Haptics.selectionAsync(); setPeriod(opt.key); }}
+                        className={`rounded-xl px-3 py-2 border ${
+                          active ? 'bg-amber-500/20 border-amber-500' : 'bg-slate-700 border-slate-600'
+                        }`}
+                      >
+                        <Text className={active ? 'text-amber-300 font-semibold' : 'text-slate-300'}>
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text className="text-slate-500 text-xs mt-2">
+                  {REWARD_PERIODS.find((o) => o.key === period)?.blurb}
+                </Text>
               </View>
+
+              {isMilestone ? (
+                <View>
+                  <Text className="text-slate-400 mb-2">Gold needed to unlock</Text>
+                  <TextInput
+                    value={goldTarget}
+                    onChangeText={setGoldTarget}
+                    placeholder="500"
+                    placeholderTextColor="#64748b"
+                    keyboardType="numeric"
+                    className="bg-slate-700 rounded-xl px-4 py-3 text-white"
+                  />
+                  <Text className="text-slate-500 text-xs mt-2">
+                    Your child sees a progress bar filling towards this.
+                  </Text>
+                </View>
+              ) : (
+                <View>
+                  <Text className="text-slate-400 mb-2">Points Cost</Text>
+                  <TextInput
+                    value={pointsCost}
+                    onChangeText={setPointsCost}
+                    placeholder="50"
+                    placeholderTextColor="#64748b"
+                    keyboardType="numeric"
+                    className="bg-slate-700 rounded-xl px-4 py-3 text-white"
+                  />
+                </View>
+              )}
 
               <View>
                 <Text className="text-slate-400 mb-2">Image URL (optional)</Text>

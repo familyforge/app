@@ -502,6 +502,26 @@ async function pushNow(): Promise<void> {
         }))
       );
     }
+    const rewards = useAppStore.getState().rewards;
+    if (rewards.length > 0) {
+      await db.from('rewards').upsert(
+        rewards.map((r) => ({
+          id: r.id,
+          child_id: r.childId ?? null,
+          parent_id: parentId,
+          title: r.title,
+          description: r.description ?? null,
+          image_url: isRemoteUrl(r.imageUrl) ? r.imageUrl : null,
+          // A milestone reward has a target, not a price, so points_required is
+          // deliberately null there rather than 0 — the constraint enforces it.
+          points_required: r.period === 'gold_target' ? null : r.pointsCost,
+          reward_period: r.period ?? 'spend',
+          gold_target: r.period === 'gold_target' ? r.goldTarget ?? null : null,
+          redeemed: r.redeemed ?? false,
+          updated_at: new Date().toISOString(),
+        }))
+      );
+    }
   } catch (err) {
     console.warn('[cloud-sync] push failed:', err);
   }

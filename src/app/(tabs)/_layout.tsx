@@ -7,6 +7,7 @@ import { isChildApp } from "../../lib/appVariant";
 import { recordStreakActivity } from "../../lib/api/streaks";
 import { hydrateFromCloud, startCloudSync } from "../../lib/api/cloud-sync";
 import { scheduleGoalReminder } from "../../lib/utils/goalReminder";
+import { registerPushToken } from "../../lib/utils/pushToken";
 import {
   ensureTodaysAffirmation, pendingAffirmation, markAffirmationSeen, scheduleDailyAffirmation,
 } from "../../lib/utils/dailyAffirmation";
@@ -65,6 +66,9 @@ export default function TabLayout() {
   useEffect(() => {
     if (!user?.id || isChildApp) return;
     void scheduleGoalReminder();
+    // Without a stored token there is nowhere to send "your child finished a
+    // task", so this runs on every authenticated launch.
+    void registerPushToken("parent");
   }, [user?.id]);
 
   // Wait for the persisted session to be restored before deciding.

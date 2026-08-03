@@ -32,6 +32,7 @@ import { useAppStore } from "../lib/state/app-store";
 import { useChildDeviceStore } from "../lib/state/child-device-store";
 import { loadChildSession, submitTaskForApprovalRemote, loadGoldSummary, type GoldSummary } from "../lib/api/childSession";
 import { displayableImage } from "../lib/api/storage";
+import { registerPushToken, sendPushForTask } from "../lib/utils/pushToken";
 import { activateLinkedChild } from "../lib/api/childLogin";
 import { getStreak } from "../lib/api/streaks";
 import { isChildApp } from "../lib/appVariant";
@@ -376,6 +377,7 @@ export default function ChildDashboard() {
       const s = await withTimeout(getStreak("daily_login"), 10000, null);
       setStreak(s?.currentStreak ?? 0);
       setGold(await withTimeout(loadGoldSummary(session.child.points), 10000, null));
+      void registerPushToken("child");
     } finally {
       // In a finally so no early return, thrown error or timeout can leave the
       // screen stuck on "Finding your quests".
@@ -417,7 +419,10 @@ export default function ChildDashboard() {
         setCelebrate(true);
         setTimeout(() => setCelebrate(false), 1600);
       }
-      await submitTaskForApprovalRemote(taskId);
+      const saved = await submitTaskForApprovalRemote(taskId);
+      // Only tell the parent once the claim actually persisted — a push about a
+      // task that failed to save would send them looking for nothing.
+      if (saved) void sendPushForTask("task_claimed", taskId);
       setClaiming(null);
     },
     [submitTaskForApproval, reduceMotion]

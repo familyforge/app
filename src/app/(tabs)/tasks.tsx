@@ -9,6 +9,7 @@ import { useAppStore } from '../../lib/state/app-store';
 import { 
   cancelTaskNotification
 } from '../../lib/utils/notifications';
+import { sendPushForTask } from '../../lib/utils/pushToken';
 import type { TaskCategory, Task } from '../../lib/types';
 
 const CATEGORIES: { id: TaskCategory; label: string; emoji: string }[] = [
@@ -376,6 +377,11 @@ export default function TasksScreen() {
     // The task is genuinely done now, so drop its reminder.
     await cancelTaskNotification(taskId);
     approveTask(taskId);
+
+    // Close the loop the other way: the child is told their effort was accepted.
+    // Without this, approval awards gold in silence and the child only notices
+    // by reopening the app.
+    void sendPushForTask("task_approved", taskId);
   };
 
   const handleReject = (taskId: string) => {

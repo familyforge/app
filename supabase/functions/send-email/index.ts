@@ -22,6 +22,7 @@
 
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { assertUserOrCron } from '../_shared/guard.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'FamilyForge <hello@familyforge.app>';
@@ -962,6 +963,11 @@ const emailTemplates: Record<string, (data: Record<string, unknown>) => { subjec
 };
 
 serve(async (req) => {
+
+  // A real signed-in user, or the scheduler. The anon key identifies the
+  // project, not a person, and must not be enough to send mail.
+  const denied = await assertUserOrCron(req);
+  if (denied) return denied;
   // CORS headers for browser requests (admin dashboard)
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',

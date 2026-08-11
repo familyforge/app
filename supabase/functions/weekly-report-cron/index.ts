@@ -4,6 +4,7 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { assertCronCaller } from '../_shared/guard.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -12,6 +13,11 @@ const resendApiKey = Deno.env.get('RESEND_API_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req) => {
+
+  // Scheduled/bulk work: requires the shared secret. Posting with just the
+  // anon key used to return 200 and email every user.
+  const denied = assertCronCaller(req);
+  if (denied) return denied;
   // Verify this is a scheduled invocation or admin call
   const authHeader = req.headers.get('Authorization');
   

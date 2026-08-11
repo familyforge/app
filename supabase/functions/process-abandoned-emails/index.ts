@@ -3,6 +3,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { assertCronCaller } from '../_shared/guard.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,11 @@ interface PendingSession {
 }
 
 serve(async (req) => {
+
+  // Scheduled/bulk work: requires the shared secret. Posting with just the
+  // anon key used to return 200 and email every user.
+  const denied = assertCronCaller(req);
+  if (denied) return denied;
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
